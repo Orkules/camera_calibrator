@@ -7,6 +7,9 @@ Based on SerialSession from bad_pixel_automation project
 
 import serial
 import logging
+import time
+import threading
+import re
 from typing import Dict, Optional, Any, List, Callable
 from collections import deque
 from datetime import datetime
@@ -69,10 +72,10 @@ class TerminalSession:
             self.serial_conn.close()
             logging.info(f"Terminal '{self.name}' disconnected")
     
-    def send_command(self, command: str) -> Optional[str]:
+    def send_command(self, command: str, wait_for_response: bool = False) -> Optional[str]:
         """
-        Send command and read response with filtering.
-        Returns filtered response or None if no meaningful response.
+        Send command. If wait_for_response is True, waits for immediate response.
+        Otherwise, relies on background listener to catch the response.
         """
         if not self.serial_conn or not self.serial_conn.is_open:
             # Attempt lazy reconnect
@@ -92,70 +95,97 @@ class TerminalSession:
             self.serial_conn.write(command.encode(self.encoding))
             self.serial_conn.flush()
             
-            # Read response with quiet window
-            import time
-            response_lines = []
-            start_time = time.time()
-            quiet_start = None
-            while True:
-                current_time = time.time()
-                elapsed = current_time - start_time
-                
-                # Check overall timeout
-                if elapsed >= self.timeout_seconds:
-                    break
-                
-                # Try to read a line
-                try:
-                    line = self.serial_conn.readline()
-                    if line:
-                        # Got data, reset quiet window
-                        quiet_start = None
-                        decoded_line = line.decode(self.encoding, errors='replace').rstrip('\r\n')
-                        if decoded_line:  # Skip empty lines
-                            response_lines.append(decoded_line)
-                    else:
-                        # No data received
-                        if quiet_start is None:
-                            quiet_start = current_time
-                        elif current_time - quiet_start >= 0.1:  # 100ms quiet window
-                            break
-                        time.sleep(0.01)  # Small sleep to prevent busy waiting
-                        
-                except Exception:
-                    break
+            # Only wait for response if explicitly requested (for backward compatibility)
+            if wait_for_response:
+                return self._read_immediate_response(command)
             
-            # Filter response lines
-            filtered_lines = []
-            for line in response_lines:
-                should_ignore = False
-                
-                # Skip if it's the command echo (first line that matches the sent command)
-                if line.strip() == command.strip():
-                    should_ignore = True
-                
-                # Skip if it matches ignore_responses
-                if not should_ignore:
-                    for ignore_substring in self.ignore_responses:
-                        if ignore_substring in line:
-                            should_ignore = True
-                            break
-                
-                if not should_ignore:
-                    filtered_lines.append(line)
-                    # Log response line
-                    if self.log_callback:
-                        self.log_callback(f"RECV {self.name}: {line}")
-            
-            # Return filtered response or None
-            if filtered_lines:
-                return '\n'.join(filtered_lines)
-            else:
-                return None
+            return None
                 
         except Exception as e:
             logging.error(f"Error executing command '{command}' on terminal '{self.name}': {e}")
             return None
+    
+    def _read_immediate_response(self, sent_command: str) -> Optional[str]:
+        """Read immediate response after sending command (for backward compatibility)."""
+        response_lines = []
+        start_time = time.time()
+        quiet_start = None
+        
+        # Determine if this is a query command (needs longer timeout)
+        is_query_command = sent_command.strip().endswith('Q') or sent_command.strip() in ['MZQ', 'GAQ', 'MIOQ5', 'MIOQ7']
+        quiet_window = 0.2 if is_query_command else 0.05
+        
+        original_timeout = self.serial_conn.timeout
+        self.serial_conn.timeout = 0.1 if is_query_command else 0.05
+        
+        try:
+            while True:
+                current_time = time.time()
+                elapsed = current_time - start_time
+                
+                if elapsed >= self.timeout_seconds:
+                    break
+                
+                if self.serial_conn.in_waiting > 0:
+                    quiet_start = None
+                    try:
+                        line = self.serial_conn.readline()
+                        if line:
+                            decoded_line = line.decode(self.encoding, errors='replace').rstrip('\r\n')
+                            if decoded_line:
+                                response_lines.append(decoded_line)
+                    except Exception:
+                        break
+                else:
+                    if quiet_start is None:
+                        quiet_start = current_time
+                    elif current_time - quiet_start >= quiet_window:
+                        break
+                    time.sleep(0.005)
+        finally:
+            self.serial_conn.timeout = original_timeout
+        
+        # Filter response lines
+        filtered_lines = []
+        for line in response_lines:
+            should_ignore = False
+            
+            if line.strip() == sent_command.strip():
+                should_ignore = True
+            
+            if not should_ignore:
+                for ignore_substring in self.ignore_responses:
+                    if ignore_substring in line:
+                        should_ignore = True
+                        break
+            
+            if not should_ignore:
+                filtered_lines.append(line)
+                if self.log_callback:
+                    self.log_callback(f"RECV {self.name}: {line}")
+        
+        return '\n'.join(filtered_lines) if filtered_lines else None
+    
+    def read_line(self) -> Optional[str]:
+        """Read a single line from the terminal (non-blocking)."""
+        if not self.serial_conn or not self.serial_conn.is_open:
+            return None
+        
+        try:
+            if self.serial_conn.in_waiting > 0:
+                line = self.serial_conn.readline()
+                if line:
+                    decoded_line = line.decode(self.encoding, errors='replace').rstrip('\r\n')
+                    if decoded_line:
+                        # Check if should ignore
+                        for ignore_substring in self.ignore_responses:
+                            if ignore_substring in decoded_line:
+                                return None  # Ignore this line
+                        return decoded_line
+        except Exception as e:
+            logging.debug(f"Error reading line from {self.name}: {e}")
+        
+        return None
 
 
 class TerminalManager:
@@ -166,6 +196,12 @@ class TerminalManager:
         self.terminals: Dict[str, TerminalSession] = {}
         self.log_callback = log_callback
         self._init_terminals()
+        
+        # Background listener thread
+        self.listener_thread = None
+        self.listener_running = False
+        self.response_callbacks: Dict[str, List[Callable[[str, str], None]]] = {}  # pattern -> callbacks
+        self._lock = threading.Lock()
     
     def _init_terminals(self):
         """Initialize all terminal sessions."""
@@ -199,12 +235,82 @@ class TerminalManager:
         """Get a terminal session by name."""
         return self.terminals.get(name)
     
-    def send_command(self, terminal_name: str, command: str) -> Optional[str]:
-        """Send a command to a specific terminal and return the response."""
+    def send_command(self, terminal_name: str, command: str, wait_for_response: bool = False) -> Optional[str]:
+        """Send a command to a specific terminal. Returns response only if wait_for_response=True."""
         terminal = self.get_terminal(terminal_name)
         if terminal:
-            return terminal.send_command(command)
+            return terminal.send_command(command, wait_for_response=wait_for_response)
         else:
             logging.error(f"Terminal '{terminal_name}' not found")
             return None
+    
+    def register_response_callback(self, response_pattern: str, callback: Callable[[str, str], None]):
+        """
+        Register a callback for a specific response pattern.
+        Callback will be called with (terminal_name, response_message) when pattern matches.
+        
+        Args:
+            response_pattern: Pattern like "MZR<val>", "GAR<val>", "MIOR-<val>"
+            callback: Function(terminal_name: str, response: str) -> None
+        """
+        with self._lock:
+            if response_pattern not in self.response_callbacks:
+                self.response_callbacks[response_pattern] = []
+            self.response_callbacks[response_pattern].append(callback)
+            logging.debug(f"Registered callback for pattern '{response_pattern}'")
+    
+    def _parse_and_notify(self, terminal_name: str, message: str):
+        """Parse message and notify registered callbacks if pattern matches."""
+        with self._lock:
+            for pattern, callbacks in self.response_callbacks.items():
+                # Convert pattern to regex (e.g., "MZR<val>" -> "MZR(-?\d+)")
+                regex_pattern = pattern.replace('<val>', r'(-?\d+)')
+                if re.search(regex_pattern, message):
+                    for callback in callbacks:
+                        try:
+                            callback(terminal_name, message)
+                        except Exception as e:
+                            logging.error(f"Error in callback for pattern '{pattern}': {e}")
+    
+    def _background_listener(self):
+        """Background thread that continuously reads from all terminals."""
+        logging.info("Background terminal listener started")
+        while self.listener_running:
+            try:
+                for terminal_name, terminal in self.terminals.items():
+                    if not terminal.serial_conn or not terminal.serial_conn.is_open:
+                        continue
+                    
+                    line = terminal.read_line()
+                    if line:
+                        # Log received message
+                        if self.log_callback:
+                            self.log_callback(f"RECV {terminal_name}: {line}")
+                        
+                        # Parse and notify callbacks
+                        self._parse_and_notify(terminal_name, line)
+                
+                # Small sleep to prevent CPU spinning
+                time.sleep(0.01)  # 10ms
+                
+            except Exception as e:
+                logging.error(f"Error in background listener: {e}")
+                time.sleep(0.1)
+        
+        logging.info("Background terminal listener stopped")
+    
+    def start_listener(self):
+        """Start the background listener thread."""
+        if self.listener_thread is None or not self.listener_thread.is_alive():
+            self.listener_running = True
+            self.listener_thread = threading.Thread(target=self._background_listener, daemon=True)
+            self.listener_thread.start()
+            logging.info("Started background terminal listener")
+    
+    def stop_listener(self):
+        """Stop the background listener thread."""
+        self.listener_running = False
+        if self.listener_thread:
+            self.listener_thread.join(timeout=1.0)
+        logging.info("Stopped background terminal listener")
 

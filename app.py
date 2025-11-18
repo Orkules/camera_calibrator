@@ -92,9 +92,126 @@ def init_components():
     
     # Pass log callback to terminal manager
     terminal_manager = TerminalManager(config, log_callback=add_console_message)
+    
+    # Register callbacks for automatic value updates
+    register_terminal_callbacks()
+    
     stream_processor = StreamProcessor(
         rtsp_url=config.get('stream', {}).get('rtsp_url', 'rtsp://192.168.0.100:9079/vis')
     )
+
+
+def register_terminal_callbacks():
+    """Register callbacks for automatic parsing of terminal responses based on config."""
+    global terminal_manager, config, zoom_value, gain_value, focus_value, motor_max
+    global reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y
+    
+    if terminal_manager is None or config is None:
+        return
+    
+    # Mapping from config key to (response_pattern, global_variable_name, validation_function)
+    # This maps config entries to the global variables they should update
+    callback_mapping = {
+        'zoom_command': ('zoom_value', None),
+        'gain_command': ('gain_value', None),
+        'focus_command': ('focus_value', None),
+        'uv_offset_x_command': ('reg_offset_x', None),
+        'uv_offset_y_command': ('reg_offset_y', None),
+        'uv_magnify_x_command': ('reg_stretch_x', None),
+        'uv_magnify_y_command': ('reg_stretch_y', None),
+        'get_zoom_value': ('zoom_value', None),
+        'get_gain_value': ('gain_value', None),
+        'get_focus_value': ('focus_value', None),
+        'get_uv_offset_x_value': ('reg_offset_x', None),
+        'get_uv_offset_y_value': ('reg_offset_y', None),
+        'get_uv_magnify_x_value': ('reg_stretch_x', None),
+        'get_uv_magnify_y_value': ('reg_stretch_y', None),
+    }
+    
+    # Special case for motor_max (from operations)
+    motor_max_pattern = None
+    if 'operations' in config and 'motor_max_script' in config['operations']:
+        for step in config['operations']['motor_max_script']:
+            if step.get('response'):
+                motor_max_pattern = step.get('response')
+                break
+    
+    # Collect all response patterns from config
+    response_to_globals = {}  # response_pattern -> list of (global_var_name, validation_func)
+    
+    # Read from commands section
+    if 'commands' in config:
+        for cmd_name, cmd_steps in config['commands'].items():
+            if cmd_name in callback_mapping:
+                global_var_name, validation_func = callback_mapping[cmd_name]
+                for step in cmd_steps:
+                    response_pattern = step.get('response')
+                    if response_pattern:
+                        if response_pattern not in response_to_globals:
+                            response_to_globals[response_pattern] = []
+                        response_to_globals[response_pattern].append((global_var_name, validation_func))
+    
+    # Read from get_values section
+    if 'get_values' in config:
+        for get_name, get_steps in config['get_values'].items():
+            if get_name in callback_mapping:
+                global_var_name, validation_func = callback_mapping[get_name]
+                for step in get_steps:
+                    response_pattern = step.get('response')
+                    if response_pattern:
+                        if response_pattern not in response_to_globals:
+                            response_to_globals[response_pattern] = []
+                        response_to_globals[response_pattern].append((global_var_name, validation_func))
+    
+    # Add motor_max pattern
+    if motor_max_pattern:
+        if motor_max_pattern not in response_to_globals:
+            response_to_globals[motor_max_pattern] = []
+        # Motor max should be positive
+        def validate_motor_max(val):
+            return val > 0
+        response_to_globals[motor_max_pattern].append(('motor_max', validate_motor_max))
+    
+    # Create and register callbacks for each response pattern
+    for response_pattern, global_vars in response_to_globals.items():
+        def make_callback(pattern, vars_list):
+            def callback(terminal_name: str, response: str):
+                parsed = parse_response_value(response, pattern)
+                if parsed is not None:
+                    for global_var_name, validation_func in vars_list:
+                        if validation_func is None or validation_func(parsed):
+                            # Update the global variable
+                            if global_var_name == 'zoom_value':
+                                globals()['zoom_value'] = parsed
+                                logging.info(f"Auto-updated zoom value: {parsed} from {response}")
+                            elif global_var_name == 'gain_value':
+                                globals()['gain_value'] = parsed
+                                logging.info(f"Auto-updated gain value: {parsed} from {response}")
+                            elif global_var_name == 'focus_value':
+                                globals()['focus_value'] = parsed
+                                logging.info(f"Auto-updated focus value: {parsed} from {response}")
+                            elif global_var_name == 'motor_max':
+                                globals()['motor_max'] = parsed
+                                logging.info(f"Auto-updated motor max: {parsed} from {response}")
+                            elif global_var_name == 'reg_offset_x':
+                                globals()['reg_offset_x'] = parsed
+                                logging.info(f"Auto-updated UV offset X: {parsed} from {response}")
+                            elif global_var_name == 'reg_offset_y':
+                                globals()['reg_offset_y'] = parsed
+                                logging.info(f"Auto-updated UV offset Y: {parsed} from {response}")
+                            elif global_var_name == 'reg_stretch_x':
+                                globals()['reg_stretch_x'] = parsed
+                                logging.info(f"Auto-updated UV magnify X: {parsed} from {response}")
+                            elif global_var_name == 'reg_stretch_y':
+                                globals()['reg_stretch_y'] = parsed
+                                logging.info(f"Auto-updated UV magnify Y: {parsed} from {response}")
+            return callback
+        
+        callback_func = make_callback(response_pattern, global_vars)
+        terminal_manager.register_response_callback(response_pattern, callback_func)
+        logging.debug(f"Registered callback for pattern '{response_pattern}' -> {[v[0] for v in global_vars]}")
+    
+    logging.info(f"Registered {len(response_to_globals)} terminal response callbacks from config")
 
 
 def encode_frame(frame):
@@ -212,11 +329,12 @@ def execute_command_from_config(command_name: str, value: int = None):
             logging.error(f"Terminal '{terminal_name}' is not connected (port: {terminal.port})")
             return False, None, None
         
-        response = terminal.send_command(command)
-        if response is None:
-            logging.warning(f"No response from terminal '{terminal_name}' for command '{command}'")
+        # Send command without waiting for response (background listener will catch it)
+        terminal.send_command(command, wait_for_response=False)
         
-        last_response = response
+        # For backward compatibility, we still track the response pattern
+        # but the actual response will be caught by the background listener
+        last_response = None
         last_response_pattern = response_pattern
     
     # Parse value from response if pattern is provided
@@ -268,11 +386,12 @@ def execute_operation_from_config(operation_name: str):
             logging.error(f"Terminal '{terminal_name}' is not connected (port: {terminal.port})")
             return None
         
-        response = terminal.send_command(command)
-        if response is None:
-            logging.warning(f"No response from terminal '{terminal_name}' for command '{command}'")
+        # Send command without waiting for response (background listener will catch it)
+        terminal.send_command(command, wait_for_response=False)
         
-        last_response = response
+        # For backward compatibility, we still track the response pattern
+        # but the actual response will be caught by the background listener
+        last_response = None
         last_response_pattern = response_pattern
     
     # Parse value from last response if pattern is provided
@@ -288,6 +407,7 @@ def execute_operation_from_config(operation_name: str):
 def find_motor_max() -> int:
     """
     Find motor maximum position by executing motor_max_script.
+    Background listener will catch the response and update motor_max via callback.
     
     Returns:
         Motor max value as integer, or None if failed
@@ -297,8 +417,11 @@ def find_motor_max() -> int:
     logging.info("Finding motor max position...")
     result = execute_operation_from_config('motor_max_script')
     
-    if result and 'value' in result and result['value'] is not None:
-        motor_max = result['value']
+    # Wait a bit for background listener to catch the response
+    import time
+    time.sleep(0.5)  # Give time for response to arrive and be processed
+    
+    if motor_max is not None:
         logging.info(f"Motor max position found: {motor_max}")
         return motor_max
     else:
@@ -308,36 +431,48 @@ def find_motor_max() -> int:
 
 def terminal_initialization():
     """
-    Initialize terminal values: get zoom, gain, focus from terminal and find motor max.
+    Initialize terminal values: get zoom, gain, focus, UV registration from terminal and find motor max.
     Updates global variables and UI.
     """
-    global zoom_value, gain_value, focus_value, motor_max
+    global zoom_value, gain_value, focus_value, motor_max, reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y
     
     logging.info("Starting terminal initialization...")
     
     # Get zoom value from terminal
-    zoom_val = get_value_from_config('get_zoom_value')
-    if zoom_val is not None:
-        zoom_value = zoom_val
-        logging.info(f"Initialized zoom value: {zoom_value}")
-    else:
-        logging.warning("Failed to get zoom value from terminal")
+    get_value_from_config('get_zoom_value')
+    import time
+    time.sleep(0.1)  # Give background listener time to process
+    logging.info(f"Initialized zoom value: {zoom_value}")
     
     # Get gain value from terminal
-    gain_val = get_value_from_config('get_gain_value')
-    if gain_val is not None:
-        gain_value = gain_val
-        logging.info(f"Initialized gain value: {gain_value}")
-    else:
-        logging.warning("Failed to get gain value from terminal")
+    get_value_from_config('get_gain_value')
+    time.sleep(0.1)
+    logging.info(f"Initialized gain value: {gain_value}")
     
     # Get focus value from terminal
-    focus_val = get_value_from_config('get_focus_value')
-    if focus_val is not None:
-        focus_value = focus_val
-        logging.info(f"Initialized focus value: {focus_value}")
-    else:
-        logging.warning("Failed to get focus value from terminal")
+    get_value_from_config('get_focus_value')
+    time.sleep(0.1)
+    logging.info(f"Initialized focus value: {focus_value}")
+    
+    # Get UV offset X value
+    get_value_from_config('get_uv_offset_x_value')
+    time.sleep(0.1)
+    logging.info(f"Initialized UV offset X: {reg_offset_x}")
+    
+    # Get UV offset Y value
+    get_value_from_config('get_uv_offset_y_value')
+    time.sleep(0.1)
+    logging.info(f"Initialized UV offset Y: {reg_offset_y}")
+    
+    # Get UV magnify X value
+    get_value_from_config('get_uv_magnify_x_value')
+    time.sleep(0.1)
+    logging.info(f"Initialized UV magnify X: {reg_stretch_x}")
+    
+    # Get UV magnify Y value
+    get_value_from_config('get_uv_magnify_y_value')
+    time.sleep(0.1)
+    logging.info(f"Initialized UV magnify Y: {reg_stretch_y}")
     
     # Find motor max position
     motor_max_val = find_motor_max()
@@ -394,20 +529,19 @@ def get_value_from_config(get_command_name: str) -> int:
             logging.debug(f"Terminal '{terminal_name}' is not connected (port: {terminal.port})")
             return None
         
-        response = terminal.send_command(command)
-        if response is None:
-            logging.debug(f"No response from terminal '{terminal_name}' for command '{command}'")
-            return None
+        logging.info(f"[DEBUG] Sending command '{command}' to terminal '{terminal_name}' for '{get_command_name}'")
+        # Send command - background listener will catch the response and update via callbacks
+        # For initialization, we wait a bit for the response
+        terminal.send_command(command, wait_for_response=False)
         
-        # Parse value from response
-        if response_pattern:
-            parsed = parse_response_value(response, response_pattern)
-            if parsed is not None:
-                return parsed
-            else:
-                logging.debug(f"Failed to parse value from response '{response}' with pattern '{response_pattern}'")
-    
-    return None
+        # Wait a short time for response (background listener should catch it quickly)
+        import time
+        time.sleep(0.3)  # Give background listener time to catch response
+        
+        # The value should now be updated via callback, but we can't return it here
+        # This function is mainly for initialization - the background listener handles updates
+        logging.info(f"[DEBUG] Command sent, background listener will handle response")
+        return None  # Background listener will update values via callbacks
 
 
 @app.route('/')
@@ -476,6 +610,9 @@ def connect_terminals():
         init_components()
     
     if terminal_manager.connect_all():
+        # Start background listener for automatic response parsing
+        terminal_manager.start_listener()
+        
         # Initialize terminal values after successful connection
         terminal_initialization()
         return jsonify({'success': True, 'message': 'Terminals connected successfully'})
@@ -496,16 +633,11 @@ def zoom_increase():
     
     new_value = zoom_value + 1
     
-    # Send command to terminal and get response
+    # Send command to terminal - background listener will update zoom_value via callback
     success, response, parsed_value = execute_command_from_config('zoom_command', new_value)
     
-    if success and parsed_value is not None:
-        # Update with actual value from terminal
-        zoom_value = parsed_value
-        return jsonify({'success': True, 'zoom_value': zoom_value})
-    elif success:
-        # Command sent but no parsed value, assume it worked
-        zoom_value = new_value
+    if success:
+        # Command sent - background listener will update zoom_value when response arrives
         return jsonify({'success': True, 'zoom_value': zoom_value})
     else:
         return jsonify({'success': False, 'error': 'Failed to send zoom command to terminal'})
@@ -521,16 +653,11 @@ def zoom_decrease():
     
     new_value = zoom_value - 1
     
-    # Send command to terminal and get response
+    # Send command to terminal - background listener will update zoom_value via callback
     success, response, parsed_value = execute_command_from_config('zoom_command', new_value)
     
-    if success and parsed_value is not None:
-        # Update with actual value from terminal
-        zoom_value = parsed_value
-        return jsonify({'success': True, 'zoom_value': zoom_value})
-    elif success:
-        # Command sent but no parsed value, assume it worked
-        zoom_value = new_value
+    if success:
+        # Command sent - background listener will update zoom_value when response arrives
         return jsonify({'success': True, 'zoom_value': zoom_value})
     else:
         return jsonify({'success': False, 'error': 'Failed to send zoom command to terminal'})
@@ -560,17 +687,33 @@ def reg_up():
     global reg_offset_y, reg_stretch_y, registration_mode
     
     if registration_mode == "shift":
-        reg_offset_y += 1
+        new_value = reg_offset_y + 1
+        # Send command to terminal - background listener will update reg_offset_y via callback
+        success, response, parsed_value = execute_command_from_config('uv_offset_y_command', new_value)
+        if success:
+            return jsonify({
+                'success': True,
+                'offset_x': reg_offset_x,
+                'offset_y': reg_offset_y,
+                'stretch_x': reg_stretch_x,
+                'stretch_y': reg_stretch_y
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to send UV offset Y command'})
     else:
-        reg_stretch_y += 1
-    # TODO: Send command to terminal
-    return jsonify({
-        'success': True,
-        'offset_x': reg_offset_x,
-        'offset_y': reg_offset_y,
-        'stretch_x': reg_stretch_x,
-        'stretch_y': reg_stretch_y
-    })
+        new_value = reg_stretch_y + 1
+        # Send command to terminal - background listener will update reg_stretch_y via callback
+        success, response, parsed_value = execute_command_from_config('uv_magnify_y_command', new_value)
+        if success:
+            return jsonify({
+                'success': True,
+                'offset_x': reg_offset_x,
+                'offset_y': reg_offset_y,
+                'stretch_x': reg_stretch_x,
+                'stretch_y': reg_stretch_y
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to send UV magnify Y command'})
 
 
 @app.route('/reg_down', methods=['POST'])
@@ -579,17 +722,33 @@ def reg_down():
     global reg_offset_y, reg_stretch_y, registration_mode
     
     if registration_mode == "shift":
-        reg_offset_y -= 1
+        new_value = reg_offset_y - 1
+        # Send command to terminal - background listener will update reg_offset_y via callback
+        success, response, parsed_value = execute_command_from_config('uv_offset_y_command', new_value)
+        if success:
+            return jsonify({
+                'success': True,
+                'offset_x': reg_offset_x,
+                'offset_y': reg_offset_y,
+                'stretch_x': reg_stretch_x,
+                'stretch_y': reg_stretch_y
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to send UV offset Y command'})
     else:
-        reg_stretch_y -= 1
-    # TODO: Send command to terminal
-    return jsonify({
-        'success': True,
-        'offset_x': reg_offset_x,
-        'offset_y': reg_offset_y,
-        'stretch_x': reg_stretch_x,
-        'stretch_y': reg_stretch_y
-    })
+        new_value = reg_stretch_y - 1
+        # Send command to terminal - background listener will update reg_stretch_y via callback
+        success, response, parsed_value = execute_command_from_config('uv_magnify_y_command', new_value)
+        if success:
+            return jsonify({
+                'success': True,
+                'offset_x': reg_offset_x,
+                'offset_y': reg_offset_y,
+                'stretch_x': reg_stretch_x,
+                'stretch_y': reg_stretch_y
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to send UV magnify Y command'})
 
 
 @app.route('/reg_left', methods=['POST'])
@@ -598,17 +757,33 @@ def reg_left():
     global reg_offset_x, reg_stretch_x, registration_mode
     
     if registration_mode == "shift":
-        reg_offset_x -= 1
+        new_value = reg_offset_x - 1
+        # Send command to terminal - background listener will update reg_offset_x via callback
+        success, response, parsed_value = execute_command_from_config('uv_offset_x_command', new_value)
+        if success:
+            return jsonify({
+                'success': True,
+                'offset_x': reg_offset_x,
+                'offset_y': reg_offset_y,
+                'stretch_x': reg_stretch_x,
+                'stretch_y': reg_stretch_y
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to send UV offset X command'})
     else:
-        reg_stretch_x -= 1
-    # TODO: Send command to terminal
-    return jsonify({
-        'success': True,
-        'offset_x': reg_offset_x,
-        'offset_y': reg_offset_y,
-        'stretch_x': reg_stretch_x,
-        'stretch_y': reg_stretch_y
-    })
+        new_value = reg_stretch_x - 1
+        # Send command to terminal - background listener will update reg_stretch_x via callback
+        success, response, parsed_value = execute_command_from_config('uv_magnify_x_command', new_value)
+        if success:
+            return jsonify({
+                'success': True,
+                'offset_x': reg_offset_x,
+                'offset_y': reg_offset_y,
+                'stretch_x': reg_stretch_x,
+                'stretch_y': reg_stretch_y
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to send UV magnify X command'})
 
 
 @app.route('/reg_right', methods=['POST'])
@@ -617,17 +792,33 @@ def reg_right():
     global reg_offset_x, reg_stretch_x, registration_mode
     
     if registration_mode == "shift":
-        reg_offset_x += 1
+        new_value = reg_offset_x + 1
+        # Send command to terminal - background listener will update reg_offset_x via callback
+        success, response, parsed_value = execute_command_from_config('uv_offset_x_command', new_value)
+        if success:
+            return jsonify({
+                'success': True,
+                'offset_x': reg_offset_x,
+                'offset_y': reg_offset_y,
+                'stretch_x': reg_stretch_x,
+                'stretch_y': reg_stretch_y
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to send UV offset X command'})
     else:
-        reg_stretch_x += 1
-    # TODO: Send command to terminal
-    return jsonify({
-        'success': True,
-        'offset_x': reg_offset_x,
-        'offset_y': reg_offset_y,
-        'stretch_x': reg_stretch_x,
-        'stretch_y': reg_stretch_y
-    })
+        new_value = reg_stretch_x + 1
+        # Send command to terminal - background listener will update reg_stretch_x via callback
+        success, response, parsed_value = execute_command_from_config('uv_magnify_x_command', new_value)
+        if success:
+            return jsonify({
+                'success': True,
+                'offset_x': reg_offset_x,
+                'offset_y': reg_offset_y,
+                'stretch_x': reg_stretch_x,
+                'stretch_y': reg_stretch_y
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to send UV magnify X command'})
 
 
 @app.route('/reg_ok', methods=['POST'])
@@ -734,12 +925,11 @@ def gain_increase():
     
     new_value = gain_value + 1
     
-    # Send command to terminal
+    # Send command to terminal - background listener will update gain_value via callback
     success, response, parsed_value = execute_command_from_config('gain_command', new_value)
     
     if success:
-        # Update with new value (gain_command doesn't return a response, so we use new_value)
-        gain_value = new_value
+        # Command sent - background listener will update gain_value when response arrives
         return jsonify({'success': True, 'gain_value': gain_value})
     else:
         return jsonify({'success': False, 'error': 'Failed to send gain command to terminal'})
@@ -755,12 +945,11 @@ def gain_decrease():
     
     new_value = gain_value - 1
     
-    # Send command to terminal
+    # Send command to terminal - background listener will update gain_value via callback
     success, response, parsed_value = execute_command_from_config('gain_command', new_value)
     
     if success:
-        # Update with new value (gain_command doesn't return a response, so we use new_value)
-        gain_value = new_value
+        # Command sent - background listener will update gain_value when response arrives
         return jsonify({'success': True, 'gain_value': gain_value})
     else:
         return jsonify({'success': False, 'error': 'Failed to send gain command to terminal'})
@@ -882,10 +1071,17 @@ def update_values_from_terminal():
                 logging.debug(f"Updated zoom value from terminal: {zoom_val}")
             
             # Update gain value
+            logging.info("=== GAIN UPDATE DEBUG START ===")
+            logging.info(f"Current gain_value before update: {gain_value}")
             gain_val = get_value_from_config('get_gain_value')
+            logging.info(f"get_value_from_config('get_gain_value') returned: {gain_val}")
             if gain_val is not None:
+                old_gain = gain_value
                 gain_value = gain_val
-                logging.debug(f"Updated gain value from terminal: {gain_val}")
+                logging.info(f"Updated gain value from {old_gain} to {gain_value}")
+            else:
+                logging.warning("=== GAIN UPDATE FAILED - get_value_from_config returned None ===")
+            logging.info("=== GAIN UPDATE DEBUG END ===")
             
             # Update focus value
             focus_val = get_value_from_config('get_focus_value')

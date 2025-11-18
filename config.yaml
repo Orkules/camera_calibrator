@@ -4,7 +4,7 @@ stream:
   rtsp_url: "rtsp://192.168.0.100:9079/vis"
 
 settings:
-  update_interval_ms: 200000  # Interval for auto-updating zoom, gain, focus values from terminal
+  update_interval_ms: 50000  # Interval for auto-updating zoom, gain, focus values from terminal
 
 terminals:
   - name: "Linux"
@@ -46,11 +46,10 @@ terminals:
 operations:
 
   # find motor max 
-  motor_max_script: |
+  motor_max_script:
     - terminal: Debug
       command: "AFS0" # Disable auto focus
       response: None
-
 
     - terminal: FPGA 
       command: "MRS0 255" # homing the motor
@@ -98,25 +97,25 @@ commands:
 
 # UV calibration - magnification (width/height)
   uv_magnify_x_command:
-    - terminal: Debug
+    - terminal: FPGA
       command: "UVRXS<val>" # UV zoom horizontal (x) magnification
-      response: None
+      response: "UVRXR<val>"
 
   uv_magnify_y_command:
-    - terminal: Debug
+    - terminal: FPGA
       command: "UVRYS<val>" # UV zoom vertical (y) magnification
-      response: None
+      response: "UVRYR<val>"
 
   # UV calibration - offset (center alignment)
   uv_offset_x_command:
-    - terminal: Debug
+    - terminal: FPGA
       command: "UVOXS<val>" # UV zoom horizontal (x) offset
-      response: None
+      response: "UVOXR<val>"
 
   uv_offset_y_command:
-    - terminal: Debug
+    - terminal: FPGA
       command: "UVOYS<val>" # UV zoom vertical (y) offset
-      response: None
+      response: "UVOYR<val>"
 
 
 
@@ -142,11 +141,35 @@ get_values:
 
   get_focus_value:
     - terminal: FPGA
-      command: "MIOQ5" # get the manual focus value
-      response: "MIOR-<val>"
+      command: "MIOQ1" # get the manual focus value
+      response: "MIOR<val>"
 
   # # get motor position
   # get_motor_position:
   #   - terminal: FPGA
   #     command: "MIOQ5"
   #     response: "MIOR<val>"
+
+  # get uv offset x value
+  get_uv_offset_x_value:
+    - terminal: FPGA
+      command: "UVOXQ"
+      response: "UVOXR<val>"
+
+  # get uv offset y value
+  get_uv_offset_y_value:
+    - terminal: FPGA
+      command: "UVOYQ"
+      response: "UVOYR<val>"
+
+  # get uv magnify x value
+  get_uv_magnify_x_value:
+    - terminal: FPGA
+      command: "UVRXQ"
+      response: "UVRXR<val>"
+
+  # get uv magnify y value
+  get_uv_magnify_y_value:
+    - terminal: FPGA
+      command: "UVRYQ"
+      response: "UVRYR<val>"
