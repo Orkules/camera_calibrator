@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luminar Camera Calibration</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            display: flex;
+            gap: 10px;
+            height: calc(100vh - 20px);
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        /* Stream Display Section */
+        .stream-section {
+            flex: 3;
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .stream-title {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .stream-frame {
+            flex: 1;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            min-height: 500px;
+            overflow: hidden;
+        }
+        
+        .stream-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: fill;
+        }
+        
+        /* Toolbar Section */
+        .toolbar-section {
+            flex: 1;
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+        }
+        
+        .toolbar-box {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+        
+        .toolbar-box h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+        
+        .control-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 5px 0;
+        }
+        
+        .value-display {
+            min-width: 50px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 5px 10px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            min-width: 40px;
+        }
+        
+        .btn:hover {
+            background: #0056b3;
+        }
+        
+        .btn-arrow {
+            padding: 5px 10px;
+            font-size: 18px;
+        }
+        
+        .btn-smart {
+            width: 100%;
+            margin-top: 5px;
+            background: #28a745;
+        }
+        
+        .btn-smart:hover {
+            background: #218838;
+        }
+        
+        .btn-mode {
+            width: 100%;
+            margin-top: 5px;
+            background: #6c757d;
+        }
+        
+        .btn-mode:hover {
+            background: #5a6268;
+        }
+        
+        
+        /* Gain section specific */
+        .gain-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        
+        .gain-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .gain-info-row label {
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .gain-info-row .value-display {
+            min-width: 80px;
+            font-size: 14px;
+        }
+        
+        .time-interval-input {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        /* Console section */
+        .console-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 200px;
+        }
+        
+        .console-text {
+            flex: 1;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        /* Control buttons */
+        .main-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .main-controls .btn {
+            flex: 1;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .status {
+            text-align: center;
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 12px;
+            display: none;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Stream Display Section -->
+        <div class="stream-section">
+            <div class="header">
+                <h1>Luminar Camera Calibration</h1>
+            </div>
+            <div class="stream-title">Processed Stream</div>
+            <div class="stream-frame" id="stream-frame">
+                <span>No stream active</span>
+            </div>
+            <div class="main-controls">
+                <button class="btn" onclick="startStream()">Start Stream</button>
+                <button class="btn btn-danger" onclick="stopStream()">Stop Stream</button>
+                <button class="btn" onclick="connectTerminals()">Connect Terminals</button>
+            </div>
+            <div class="status" id="status"></div>
+        </div>
+        
+        <!-- Toolbar Section -->
+        <div class="toolbar-section">
+            <!-- Zoom Station -->
+            <div class="toolbar-box">
+                <h3>Zoom Station</h3>
+                <div class="control-row">
+                    <button class="btn btn-arrow" onclick="zoomDecrease()">◄</button>
+                    <div class="value-display" id="zoom-value">0</div>
+                    <button class="btn btn-arrow" onclick="zoomIncrease()">►</button>
+                </div>
+            </div>
+            
+            <!-- Registration -->
+            <div class="toolbar-box">
+                <h3>Registration</h3>
+                <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                    <button class="btn btn-mode" id="reg-mode-shift" onclick="setRegistrationMode('shift')" style="flex: 1;">Shift</button>
+                    <button class="btn btn-mode" id="reg-mode-stretch" onclick="setRegistrationMode('stretch_compress')" style="flex: 1;">Stretch/Compress</button>
+                </div>
+                <div style="display: grid; grid-template-columns: auto 1fr auto 1fr auto; gap: 5px; max-width: 200px; margin: 0 auto; align-items: center;">
+                    <div class="value-display" id="reg-shift-x" style="font-size: 12px; min-width: 40px; padding: 3px 5px; grid-column: 1; grid-row: 1;">X:0</div>
+                    <button class="btn btn-arrow" onclick="regUp()" style="grid-column: 3; grid-row: 1;">▲</button>
+                    <div class="value-display" id="reg-stretch-x" style="font-size: 12px; min-width: 40px; padding: 3px 5px; grid-column: 5; grid-row: 1;">X:0</div>
+                    
+                    <div class="value-display" id="reg-shift-y" style="font-size: 12px; min-width: 40px; padding: 3px 5px; grid-column: 1; grid-row: 2;">Y:0</div>
+                    <button class="btn btn-arrow" onclick="regLeft()" style="grid-column: 2; grid-row: 2;">◄</button>
+                    <button class="btn" onclick="regOk()" style="grid-column: 3; grid-row: 2; padding: 5px 10px; font-size: 12px;">OK</button>
+                    <button class="btn btn-arrow" onclick="regRight()" style="grid-column: 4; grid-row: 2;">►</button>
+                    <div class="value-display" id="reg-stretch-y" style="font-size: 12px; min-width: 40px; padding: 3px 5px; grid-column: 5; grid-row: 2;">Y:0</div>
+                    
+                    <button class="btn btn-arrow" onclick="regDown()" style="grid-column: 3; grid-row: 3;">▼</button>
+                </div>
+                <button class="btn btn-smart" onclick="smartRegistration()">Smart Calibration</button>
+            </div>
+            
+            <!-- Focus Calibration -->
+            <div class="toolbar-box">
+                <h3>Focus Calibration</h3>
+                <div class="control-row">
+                    <button class="btn btn-arrow" onclick="focusDecrease()">◄</button>
+                    <div class="value-display" id="focus-value">0</div>
+                    <button class="btn btn-arrow" onclick="focusIncrease()">►</button>
+                    <button class="btn" onclick="focusOk()" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;">OK</button>
+                </div>
+                <button class="btn btn-smart" onclick="smartFocus()">Smart Calibration</button>
+            </div>
+            
+            <!-- Gain Calibration -->
+            <div class="toolbar-box">
+                <h3>Gain Calibration</h3>
+                <div class="control-row">
+                    <button class="btn btn-arrow" onclick="gainDecrease()">◄</button>
+                    <div class="value-display" id="gain-value">0</div>
+                    <button class="btn btn-arrow" onclick="gainIncrease()">►</button>
+                    <button class="btn" onclick="gainOk()" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;">OK</button>
+                </div>
+                <div style="display: flex; gap: 5px; margin: 5px 0;">
+                    <button class="btn btn-mode" id="gain-mode-btn" onclick="toggleGainMode()" style="flex: 1; font-size: 12px;">Min/Max</button>
+                </div>
+                <button class="btn btn-smart" onclick="smartGain()">Smart Calibration</button>
+                <div class="gain-info">
+                    <div class="gain-info-row">
+                        <label>CPS:</label>
+                        <div class="value-display" id="cps-value">0</div>
+                    </div>
+                    <div class="gain-info-row">
+                        <label>Time Interval:</label>
+                        <input type="text" class="time-interval-input" id="time-interval" placeholder="Enter value">
+                    </div>
+                    <button class="btn" onclick="setTimeInterval()" style="margin-top: 5px; width: 100%;">Set Interval</button>
+                </div>
+            </div>
+            
+            <!-- Console -->
+            <div class="toolbar-box console-box">
+                <h3>Console</h3>
+                <div class="console-text" id="console-text">Waiting for connection...\n</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let streamInterval = null;
+        let updateInterval = null;
+        let consoleInterval = null;
+        
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 3000);
+        }
+        
+        function logToConsole(message) {
+            // This function is kept for local messages, but console is now updated from server
+            // Local messages can still be added if needed
+        }
+        
+        async function updateConsole() {
+            try {
+                const response = await fetch('/get_console');
+                const data = await response.json();
+                
+                if (data.messages) {
+                    const consoleElement = document.getElementById('console-text');
+                    consoleElement.textContent = data.messages;
+                    consoleElement.scrollTop = consoleElement.scrollHeight;
+                }
+            } catch (error) {
+                console.error('Error fetching console messages:', error);
+            }
+        }
+        
+        // ============================================
+        // STREAM CONTROL FUNCTIONS
+        // ============================================
+        async function startStream() {
+            try {
+                const response = await fetch('/start_stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        rtsp_url: 'rtsp://192.168.0.100:9079/vis'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('Stream started successfully!', 'success');
+                    logToConsole('Stream started');
+                    startFrameUpdates();
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                    logToConsole(`Stream error: ${result.error}`);
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                logToConsole(`Stream error: ${error.message}`);
+            }
+        }
+        
+        async function stopStream() {
+            try {
+                const response = await fetch('/stop_stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('Stream stopped', 'info');
+                    logToConsole('Stream stopped');
+                    stopFrameUpdates();
+                    document.getElementById('stream-frame').innerHTML = '<span>No stream active</span>';
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                logToConsole(`Error: ${error.message}`);
+            }
+        }
+        
+        async function connectTerminals() {
+            try {
+                const response = await fetch('/connect_terminals', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('Terminals connected', 'success');
+                    logToConsole('Terminals connected successfully');
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                    logToConsole(`Terminal connection error: ${result.error}`);
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                logToConsole(`Error: ${error.message}`);
+            }
+        }
+        
+        function startFrameUpdates() {
+            if (streamInterval) {
+                clearInterval(streamInterval);
+            }
+            
+            streamInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/get_frame');
+                    const data = await response.json();
+                    
+                    if (data.frame) {
+                        document.getElementById('stream-frame').innerHTML = 
+                            `<img src="${data.frame}" style="width: 100%; height: 100%; object-fit: fill;">`;
+                    }
+                } catch (error) {
+                    console.error('Error fetching frame:', error);
+                }
+            }, 100); // Update every 100ms
+        }
+        
+        function stopFrameUpdates() {
+            if (streamInterval) {
+                clearInterval(streamInterval);
+                streamInterval = null;
+            }
+        }
+        
+        // ============================================
+        // ZOOM FUNCTIONS
+        // ============================================
+        async function zoomIncrease() {
+            try {
+                const response = await fetch('/zoom_increase', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('zoom-value').textContent = result.zoom_value;
+                    logToConsole(`Zoom increased to ${result.zoom_value}`);
+                }
+            } catch (error) {
+                logToConsole(`Zoom error: ${error.message}`);
+            }
+        }
+        
+        async function zoomDecrease() {
+            try {
+                const response = await fetch('/zoom_decrease', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('zoom-value').textContent = result.zoom_value;
+                    logToConsole(`Zoom decreased to ${result.zoom_value}`);
+                }
+            } catch (error) {
+                logToConsole(`Zoom error: ${error.message}`);
+            }
+        }
+        
+        async function zoomOk() {
+            try {
+                const response = await fetch('/zoom_ok', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    logToConsole(result.message);
+                    showStatus(result.message, 'success');
+                }
+            } catch (error) {
+                logToConsole(`Zoom OK error: ${error.message}`);
+            }
+        }
+        
+        // ============================================
+        // REGISTRATION FUNCTIONS
+        // ============================================
+        async function regUp() {
+            const response = await fetch('/reg_up', { method: 'POST' });
+            const result = await response.json();
+            if (result.success) {
+                updateRegistrationValues(result);
+                logToConsole('Registration: Up');
+            }
+        }
+        
+        async function regDown() {
+            const response = await fetch('/reg_down', { method: 'POST' });
+            const result = await response.json();
+            if (result.success) {
+                updateRegistrationValues(result);
+                logToConsole('Registration: Down');
+            }
+        }
+        
+        async function regLeft() {
+            const response = await fetch('/reg_left', { method: 'POST' });
+            const result = await response.json();
+            if (result.success) {
+                updateRegistrationValues(result);
+                logToConsole('Registration: Left');
+            }
+        }
+        
+        async function regRight() {
+            const response = await fetch('/reg_right', { method: 'POST' });
+            const result = await response.json();
+            if (result.success) {
+                updateRegistrationValues(result);
+                logToConsole('Registration: Right');
+            }
+        }
+        
+        function updateRegistrationValues(result) {
+            if (result.offset_x !== undefined) {
+                document.getElementById('reg-shift-x').textContent = `X:${result.offset_x}`;
+            }
+            if (result.offset_y !== undefined) {
+                document.getElementById('reg-shift-y').textContent = `Y:${result.offset_y}`;
+            }
+            if (result.stretch_x !== undefined) {
+                document.getElementById('reg-stretch-x').textContent = `X:${result.stretch_x}`;
+            }
+            if (result.stretch_y !== undefined) {
+                document.getElementById('reg-stretch-y').textContent = `Y:${result.stretch_y}`;
+            }
+        }
+        
+        async function regOk() {
+            const response = await fetch('/reg_ok', { method: 'POST' });
+            const result = await response.json();
+            logToConsole(result.message);
+        }
+        
+        async function setRegistrationMode(mode) {
+            try {
+                const response = await fetch('/set_registration_mode', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ mode: mode })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    // Update button states
+                    if (mode === 'shift') {
+                        document.getElementById('reg-mode-shift').style.background = '#007bff';
+                        document.getElementById('reg-mode-stretch').style.background = '#6c757d';
+                    } else {
+                        document.getElementById('reg-mode-shift').style.background = '#6c757d';
+                        document.getElementById('reg-mode-stretch').style.background = '#007bff';
+                    }
+                    logToConsole(`Registration mode: ${mode === 'shift' ? 'Shift' : 'Stretch/Compress'}`);
+                }
+            } catch (error) {
+                logToConsole(`Error setting registration mode: ${error.message}`);
+            }
+        }
+        
+        async function smartRegistration() {
+            const response = await fetch('/smart_registration', { method: 'POST' });
+            const result = await response.json();
+            logToConsole(result.message);
+        }
+        
+        // ============================================
+        // FOCUS FUNCTIONS
+        // ============================================
+        async function focusIncrease() {
+            try {
+                const response = await fetch('/focus_increase', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('focus-value').textContent = result.focus_value;
+                    logToConsole(`Focus increased to ${result.focus_value}`);
+                }
+            } catch (error) {
+                logToConsole(`Focus error: ${error.message}`);
+            }
+        }
+        
+        async function focusDecrease() {
+            try {
+                const response = await fetch('/focus_decrease', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('focus-value').textContent = result.focus_value;
+                    logToConsole(`Focus decreased to ${result.focus_value}`);
+                }
+            } catch (error) {
+                logToConsole(`Focus error: ${error.message}`);
+            }
+        }
+        
+        async function focusOk() {
+            try {
+                const response = await fetch('/focus_ok', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    logToConsole(result.message);
+                    showStatus(result.message, 'success');
+                }
+            } catch (error) {
+                logToConsole(`Focus OK error: ${error.message}`);
+            }
+        }
+        
+        async function smartFocus() {
+            const response = await fetch('/smart_focus', { method: 'POST' });
+            const result = await response.json();
+            logToConsole(result.message);
+        }
+        
+        // ============================================
+        // GAIN FUNCTIONS
+        // ============================================
+        async function gainIncrease() {
+            try {
+                const response = await fetch('/gain_increase', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('gain-value').textContent = result.gain_value;
+                    logToConsole(`Gain increased to ${result.gain_value}`);
+                }
+            } catch (error) {
+                logToConsole(`Gain error: ${error.message}`);
+            }
+        }
+        
+        async function gainDecrease() {
+            try {
+                const response = await fetch('/gain_decrease', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('gain-value').textContent = result.gain_value;
+                    logToConsole(`Gain decreased to ${result.gain_value}`);
+                }
+            } catch (error) {
+                logToConsole(`Gain error: ${error.message}`);
+            }
+        }
+        
+        async function gainOk() {
+            try {
+                const response = await fetch('/gain_ok', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    logToConsole(result.message);
+                    showStatus(result.message, 'success');
+                }
+            } catch (error) {
+                logToConsole(`Gain OK error: ${error.message}`);
+            }
+        }
+        
+        async function toggleGainMode() {
+            try {
+                const response = await fetch('/toggle_gain_mode', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    document.getElementById('gain-mode-btn').textContent = result.mode === 'min' ? 'Min' : 'Max';
+                    logToConsole(`Gain mode: ${result.mode}`);
+                }
+            } catch (error) {
+                logToConsole(`Error toggling gain mode: ${error.message}`);
+            }
+        }
+        
+        async function smartGain() {
+            const response = await fetch('/smart_gain', { method: 'POST' });
+            const result = await response.json();
+            logToConsole(result.message);
+        }
+        
+        async function setTimeInterval() {
+            const timeInterval = document.getElementById('time-interval').value;
+            try {
+                const response = await fetch('/set_time_interval', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ time_interval: timeInterval })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    logToConsole(`Time interval set to: ${result.time_interval}`);
+                }
+            } catch (error) {
+                logToConsole(`Error setting time interval: ${error.message}`);
+            }
+        }
+        
+        // Update values on page load
+        async function updateValues() {
+            try {
+                const [zoom, focus, gain, cps, regMode, gainMode] = await Promise.all([
+                    fetch('/get_zoom').then(r => r.json()),
+                    fetch('/get_focus').then(r => r.json()),
+                    fetch('/get_gain').then(r => r.json()),
+                    fetch('/get_cps').then(r => r.json()),
+                    fetch('/get_registration_mode').then(r => r.json()),
+                    fetch('/get_gain_mode').then(r => r.json())
+                ]);
+                
+                document.getElementById('zoom-value').textContent = zoom.zoom_value;
+                document.getElementById('focus-value').textContent = focus.focus_value;
+                document.getElementById('gain-value').textContent = gain.gain_value;
+                document.getElementById('cps-value').textContent = cps.cps_value;
+                
+                // Update registration values
+                document.getElementById('reg-shift-x').textContent = `X:${regMode.offset_x || 0}`;
+                document.getElementById('reg-shift-y').textContent = `Y:${regMode.offset_y || 0}`;
+                document.getElementById('reg-stretch-x').textContent = `X:${regMode.stretch_x || 0}`;
+                document.getElementById('reg-stretch-y').textContent = `Y:${regMode.stretch_y || 0}`;
+                
+                // Update registration mode buttons
+                if (regMode.mode === 'shift') {
+                    document.getElementById('reg-mode-shift').style.background = '#007bff';
+                    document.getElementById('reg-mode-stretch').style.background = '#6c757d';
+                } else {
+                    document.getElementById('reg-mode-shift').style.background = '#6c757d';
+                    document.getElementById('reg-mode-stretch').style.background = '#007bff';
+                }
+                
+                // Update gain mode button
+                document.getElementById('gain-mode-btn').textContent = gainMode.mode === 'min' ? 'Min' : 'Max';
+            } catch (error) {
+                console.error('Error updating values:', error);
+            }
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            updateValues();
+            updateConsole();
+        });
+        
+        // Update values periodically
+        updateInterval = setInterval(updateValues, 2000);
+        
+        // Update console periodically (every 500ms for real-time updates)
+        consoleInterval = setInterval(updateConsole, 500);
+    </script>
+</body>
+</html>
+

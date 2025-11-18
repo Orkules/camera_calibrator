@@ -1,0 +1,55 @@
+
+1. # Connect CAMERA with PC via ethernet cable.
+	
+
+2. # set CAMERA static ip
+	
+	#DT 
+	 	NETISETH0 STATIC 192.168.0.100 255.255.255.0 0.0.0.0 
+	
+	# linux 
+		/opt/ofil/send.out IC_NETISETH0 STATIC 192.168.0.100 255.255.255.0 0.0.0.0
+	
+3. # set PC adapter to a static configuration
+	
+	# CMD
+		netsh interface ip set address name="Ethernet" static 192.168.0.10 255.255.255.0 0.0.0.0
+
+ * # Revert PC and CAMERA  back to DHCP after
+	
+	# PC 
+		netsh interface ip set address name="Ethernet" dhcp 
+		
+	# CAMERA (linux)
+		/opt/ofil/send.out IC_NETIS ETH0 DHCP 0.0.0.0 0.0.0.0 0.0.0.0
+		
+#################
+
+login as: root
+password: JeRuSaLeM
+
+# Gain (0-255)
+	/opt/ofil/send.out IC_GAS<val> 
+  
+# Zoom (0-40)
+	/opt/ofil/send.out IC_MZS<val>
+
+# Manual Focus (0-75)
+	/opt/ofil/send.out IC_MFS<val>
+	
+# Focus Enable/Disable
+	/opt/ofil/send.out IC_AFS1
+	/opt/ofil/send.out IC_AFS0
+	
+# Threshold (0-250)
+	/opt/ofil/send.out IC_UVTS<val>
+	
+# Enable RTSP (rtsp://192.168.0.100:9079/vis)
+	/opt/ofil/send.out IC_STRS1
+	
+# Stream MODE (1 = visible, 2 = UV, 3 = UV + visible)
+	/opt/ofil/send.out IC_DMODES<val>
+	
+# Video Recording Start/Stop
+	/opt/ofil/send.out IC_VLSTS<clip_name>
+	/opt/ofil/send.out IC_VLSPS

@@ -1,0 +1,152 @@
+# Luminar Camera Calibration Configuration
+
+stream:
+  rtsp_url: "rtsp://192.168.0.100:9079/vis"
+
+settings:
+  update_interval_ms: 200000  # Interval for auto-updating zoom, gain, focus values from terminal
+
+terminals:
+  - name: "Linux"
+    type: linux
+    port: "COM9"               # Update with actual COM port
+    baudrate: 115200
+    eol: "\n"
+    encoding: "utf-8"
+    timeout_ms: 3000
+    ignore_responses: []
+
+  - name: "Debug"
+    type: debug
+    port: "COM8"               # Update with actual COM port
+    baudrate: 115200
+    eol: "\n"
+    encoding: "utf-8"
+    timeout_ms: 3000
+    ignore_responses: []
+
+  - name: "FPGA"
+    type: fpga
+    port: "COM10"               # Update with actual COM port
+    baudrate: 115200
+    eol: "\r\n"
+    encoding: "utf-8"
+    timeout_ms: 3000
+    ignore_responses:
+      - "#"
+      - "Still here."
+
+
+
+
+
+
+
+
+operations:
+
+  # find motor max 
+  motor_max_script: |
+    - terminal: Debug
+      command: "AFS0" # Disable auto focus
+      response: None
+
+
+    - terminal: FPGA 
+      command: "MRS0 255" # homing the motor
+      response: None
+
+    - terminal: FPGA 
+      command: "MIOQ7" # get the motor MAX POSITION
+      response: "MIOR-<val>"
+
+    # - terminal: Debug
+    #   command: "AFS1" # Enable auto focus
+    #   response: None
+
+
+
+
+commands:
+
+  # change zoom
+
+
+  zoom_command:
+    - terminal: Debug
+      command: "MZS<val>" #value is 0 - 26 (0 = 10 deg, 10 = 5 deg , 20 = 2.5 deg , 26 = 1 deg)
+      response: "MZR<val>"
+
+  # change focus
+  focus_command:
+    - terminal: Debug
+      command: "AFS0" # Disable auto focus
+      response: None
+
+    # - terminal: Debug
+    #   command: "MFS<val>" #value is 0 - 75 (0 = 10 deg, 10 = 5 deg , 20 = 2.5 deg , 26 = 1 deg) manual focus value
+    #   response: None
+
+    - terminal: FPGA
+      command: "MIOS1<val>" #Value between 0 - motor max ( currently 30000)
+      response: "MIOR-<val>"
+
+  gain_command:
+    - terminal: Debug
+      command: "GAS<val>" #value is 0 - 255 
+      response: "GAR<val>"
+
+# UV calibration - magnification (width/height)
+  uv_magnify_x_command:
+    - terminal: Debug
+      command: "UVRXS<val>" # UV zoom horizontal (x) magnification
+      response: None
+
+  uv_magnify_y_command:
+    - terminal: Debug
+      command: "UVRYS<val>" # UV zoom vertical (y) magnification
+      response: None
+
+  # UV calibration - offset (center alignment)
+  uv_offset_x_command:
+    - terminal: Debug
+      command: "UVOXS<val>" # UV zoom horizontal (x) offset
+      response: None
+
+  uv_offset_y_command:
+    - terminal: Debug
+      command: "UVOYS<val>" # UV zoom vertical (y) offset
+      response: None
+
+
+
+get_values:
+
+  # get zoom value
+  get_zoom_value:
+    - terminal: Debug
+      command: "MZQ" # get the zoom value
+      response: "MZR<val>"
+
+  # get gain value
+  get_gain_value:
+    - terminal: Debug
+      command: "GAQ" # get the gain value
+      response: "GAR<val>"
+
+  # get focus value
+  # get_focus_value:
+  #   - terminal: Debug
+  #     command: "MFQ" # get the manual focus value
+  #     response: "MFR<val>"
+
+  get_focus_value:
+    - terminal: FPGA
+      command: "MIOQ5" # get the manual focus value
+      response: "MIOR-<val>"
+
+  # # get motor position
+  # get_motor_position:
+  #   - terminal: FPGA
+  #     command: "MIOQ5"
+  #     response: "MIOR<val>"
