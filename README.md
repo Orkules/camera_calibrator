@@ -123,4 +123,3 @@ The code is organized into sections with clear headers:
 - Smart calibration algorithms
 - Advanced image processing in the stream pipeline
 - Data logging and export functionality
-
