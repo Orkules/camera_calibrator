@@ -72,7 +72,24 @@ Edit `config.yaml` to configure:
 python app.py
 ```
 
-The application will start a web server on `http://localhost:5000`. Open this URL in your web browser to access the calibration interface.
+The application starts a web server on `http://localhost:5000` and now launches your default browser automatically a few seconds after startup. If the page does not appear (for example, if pop-ups are blocked), open the URL manually.
+
+### 5. Windows Distribution Build (PyInstaller)
+
+Use the provided batch script to build a standalone Windows executable that you can copy to other PCs:
+
+```cmd
+build_windows.cmd
+```
+
+The script will:
+
+- Create (or reuse) a local virtual environment
+- Install dependencies plus PyInstaller
+- Bundle `app.py`, `config.yaml`, `templates/`, `calibration_files/`, and `luminar_eth_operation.txt`
+- Produce `dist\CameraCalibrator\CameraCalibrator.exe`
+
+Copy the entire `dist\CameraCalibrator` directory to the target PC and run `CameraCalibrator.exe`. No additional Python installation is required on the destination machine.
 
 ## Usage
 
