@@ -291,9 +291,19 @@
             <div class="toolbar-box">
                 <h3>Zoom Station</h3>
                 <div class="control-row">
-                    <button class="btn btn-arrow" onclick="zoomDecrease()">◄</button>
+                    <button class="btn btn-arrow" 
+                            onmousedown="startLongPress('zoom', -1, 0, 26)" 
+                            onmouseup="stopLongPress('zoom')"
+                            onmouseleave="stopLongPress('zoom')"
+                            ontouchstart="startLongPress('zoom', -1, 0, 26)"
+                            ontouchend="stopLongPress('zoom')">◄</button>
                     <div class="value-display" id="zoom-value">0</div>
-                    <button class="btn btn-arrow" onclick="zoomIncrease()">►</button>
+                    <button class="btn btn-arrow" 
+                            onmousedown="startLongPress('zoom', 1, 0, 26)" 
+                            onmouseup="stopLongPress('zoom')"
+                            onmouseleave="stopLongPress('zoom')"
+                            ontouchstart="startLongPress('zoom', 1, 0, 26)"
+                            ontouchend="stopLongPress('zoom')">►</button>
                 </div>
             </div>
             
@@ -306,16 +316,40 @@
                 </div>
                 <div style="display: grid; grid-template-columns: auto 1fr auto 1fr auto; gap: 5px; max-width: 200px; margin: 0 auto; align-items: center;">
                     <div class="value-display" id="reg-shift-x" style="font-size: 12px; min-width: 40px; padding: 3px 5px; grid-column: 1; grid-row: 1;">X:0</div>
-                    <button class="btn btn-arrow" onclick="regUp()" style="grid-column: 3; grid-row: 1;">▲</button>
+                    <button class="btn btn-arrow" 
+                            onmousedown="startLongPress('reg', 'up')" 
+                            onmouseup="stopLongPress('reg')"
+                            onmouseleave="stopLongPress('reg')"
+                            ontouchstart="startLongPress('reg', 'up')"
+                            ontouchend="stopLongPress('reg')"
+                            style="grid-column: 3; grid-row: 1;">▲</button>
                     <div class="value-display" id="reg-stretch-x" style="font-size: 12px; min-width: 40px; padding: 3px 5px; grid-column: 5; grid-row: 1;">X:0</div>
                     
                     <div class="value-display" id="reg-shift-y" style="font-size: 12px; min-width: 40px; padding: 3px 5px; grid-column: 1; grid-row: 2;">Y:0</div>
-                    <button class="btn btn-arrow" onclick="regLeft()" style="grid-column: 2; grid-row: 2;">◄</button>
+                    <button class="btn btn-arrow" 
+                            onmousedown="startLongPress('reg', 'left')" 
+                            onmouseup="stopLongPress('reg')"
+                            onmouseleave="stopLongPress('reg')"
+                            ontouchstart="startLongPress('reg', 'left')"
+                            ontouchend="stopLongPress('reg')"
+                            style="grid-column: 2; grid-row: 2;">◄</button>
                     <button class="btn" onclick="regOk()" style="grid-column: 3; grid-row: 2; padding: 5px 10px; font-size: 12px;">OK</button>
-                    <button class="btn btn-arrow" onclick="regRight()" style="grid-column: 4; grid-row: 2;">►</button>
+                    <button class="btn btn-arrow" 
+                            onmousedown="startLongPress('reg', 'right')" 
+                            onmouseup="stopLongPress('reg')"
+                            onmouseleave="stopLongPress('reg')"
+                            ontouchstart="startLongPress('reg', 'right')"
+                            ontouchend="stopLongPress('reg')"
+                            style="grid-column: 4; grid-row: 2;">►</button>
                     <div class="value-display" id="reg-stretch-y" style="font-size: 12px; min-width: 40px; padding: 3px 5px; grid-column: 5; grid-row: 2;">Y:0</div>
                     
-                    <button class="btn btn-arrow" onclick="regDown()" style="grid-column: 3; grid-row: 3;">▼</button>
+                    <button class="btn btn-arrow" 
+                            onmousedown="startLongPress('reg', 'down')" 
+                            onmouseup="stopLongPress('reg')"
+                            onmouseleave="stopLongPress('reg')"
+                            ontouchstart="startLongPress('reg', 'down')"
+                            ontouchend="stopLongPress('reg')"
+                            style="grid-column: 3; grid-row: 3;">▼</button>
                 </div>
                 <button class="btn btn-smart" onclick="smartRegistration()">Smart Calibration</button>
             </div>
@@ -324,9 +358,19 @@
             <div class="toolbar-box">
                 <h3>Focus Calibration</h3>
                 <div class="control-row">
-                    <button class="btn btn-arrow" onclick="focusDecrease()">◄</button>
+                    <button class="btn btn-arrow" 
+                            onmousedown="startLongPress('focus', -1)" 
+                            onmouseup="stopLongPress('focus')"
+                            onmouseleave="stopLongPress('focus')"
+                            ontouchstart="startLongPress('focus', -1)"
+                            ontouchend="stopLongPress('focus')">◄</button>
                     <div class="value-display" id="focus-value">0</div>
-                    <button class="btn btn-arrow" onclick="focusIncrease()">►</button>
+                    <button class="btn btn-arrow" 
+                            onmousedown="startLongPress('focus', 1)" 
+                            onmouseup="stopLongPress('focus')"
+                            onmouseleave="stopLongPress('focus')"
+                            ontouchstart="startLongPress('focus', 1)"
+                            ontouchend="stopLongPress('focus')">►</button>
                     <button class="btn" onclick="focusOk()" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;">OK</button>
                 </div>
                 <button class="btn btn-smart" onclick="smartFocus()">Smart Calibration</button>
@@ -336,9 +380,19 @@
             <div class="toolbar-box">
                 <h3>Gain Calibration</h3>
                 <div class="control-row">
-                    <button class="btn btn-arrow" onclick="gainDecrease()">◄</button>
+                    <button class="btn btn-arrow" 
+                            onmousedown="startLongPress('gain', -1, 0, 255)" 
+                            onmouseup="stopLongPress('gain')"
+                            onmouseleave="stopLongPress('gain')"
+                            ontouchstart="startLongPress('gain', -1, 0, 255)"
+                            ontouchend="stopLongPress('gain')">◄</button>
                     <div class="value-display" id="gain-value">0</div>
-                    <button class="btn btn-arrow" onclick="gainIncrease()">►</button>
+                    <button class="btn btn-arrow" 
+                            onmousedown="startLongPress('gain', 1, 0, 255)" 
+                            onmouseup="stopLongPress('gain')"
+                            onmouseleave="stopLongPress('gain')"
+                            ontouchstart="startLongPress('gain', 1, 0, 255)"
+                            ontouchend="stopLongPress('gain')">►</button>
                     <button class="btn" onclick="gainOk()" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;">OK</button>
                 </div>
                 <div style="display: flex; gap: 5px; margin: 5px 0;">
@@ -370,6 +424,16 @@
         let streamInterval = null;
         let updateInterval = null;
         let consoleInterval = null;
+        
+        // Long-press functionality
+        let longPressInterval = null;
+        let longPressType = null;
+        let longPressDirection = null;
+        let longPressCurrentValue = null;
+        let longPressOriginalValue = null; // Store original value before long press
+        let longPressMin = null;
+        let longPressMax = null;
+        let longPressSpeed = 50; // milliseconds between increments (faster = lower number)
         
         function showStatus(message, type = 'info') {
             const status = document.getElementById('status');
@@ -508,32 +572,279 @@
         }
         
         // ============================================
-        // ZOOM FUNCTIONS
+        // LONG-PRESS FUNCTIONALITY
         // ============================================
-        async function zoomIncrease() {
+        function startLongPress(type, direction, min, max) {
+            // Prevent context menu on long press
+            if (event) {
+                event.preventDefault();
+            }
+            
+            longPressType = type;
+            longPressDirection = direction;
+            longPressMin = min;
+            longPressMax = max;
+            
+            // Get current value from UI
+            let valueElement;
+            if (type === 'zoom') {
+                valueElement = document.getElementById('zoom-value');
+            } else if (type === 'gain') {
+                valueElement = document.getElementById('gain-value');
+            } else if (type === 'focus') {
+                valueElement = document.getElementById('focus-value');
+            } else if (type === 'reg') {
+                // For registration, we need to get the current mode and update the right value
+                // This will be handled in the interval
+            }
+            
+            if (valueElement) {
+                longPressCurrentValue = parseInt(valueElement.textContent) || 0;
+                longPressOriginalValue = longPressCurrentValue; // Store original value
+            } else if (type === 'reg') {
+                // Get registration values based on current mode
+                const regMode = document.getElementById('reg-mode-shift').style.background === 'rgb(0, 123, 255)' ? 'shift' : 'stretch';
+                if (direction === 'up' || direction === 'down') {
+                    const yElement = regMode === 'shift' ? document.getElementById('reg-shift-y') : document.getElementById('reg-stretch-y');
+                    longPressCurrentValue = parseInt(yElement.textContent.split(':')[1]) || 0;
+                } else {
+                    const xElement = regMode === 'shift' ? document.getElementById('reg-shift-x') : document.getElementById('reg-stretch-x');
+                    longPressCurrentValue = parseInt(xElement.textContent.split(':')[1]) || 0;
+                }
+                longPressOriginalValue = longPressCurrentValue; // Store original value
+            }
+            
+            // Start rapid updates
+            longPressInterval = setInterval(() => {
+                if (type === 'reg') {
+                    updateRegistrationLongPress();
+                } else {
+                    updateValueLongPress();
+                }
+            }, longPressSpeed);
+        }
+        
+        function updateValueLongPress() {
+            if (longPressCurrentValue === null) return;
+            
+            // Calculate new value
+            let newValue = longPressCurrentValue + longPressDirection;
+            
+            // Apply limits based on type
+            if (longPressType === 'zoom') {
+                if (newValue < 0) newValue = 0;
+                if (newValue > 26) newValue = 26;
+            } else if (longPressType === 'gain') {
+                if (newValue < 0) newValue = 0;
+                if (newValue > 255) newValue = 255;
+            } else if (longPressType === 'focus') {
+                if (newValue < 0) newValue = 0;
+                // For focus, we don't know motor_max in frontend, so we'll let backend validate
+                // Just prevent negative values here
+            } else {
+                // Use provided min/max if available
+                if (longPressMin !== null && newValue < longPressMin) newValue = longPressMin;
+                if (longPressMax !== null && newValue > longPressMax) newValue = longPressMax;
+            }
+            
+            // Update if changed
+            if (newValue !== longPressCurrentValue) {
+                longPressCurrentValue = newValue;
+                
+                // Update UI immediately
+                let valueElement;
+                if (longPressType === 'zoom') {
+                    valueElement = document.getElementById('zoom-value');
+                } else if (longPressType === 'gain') {
+                    valueElement = document.getElementById('gain-value');
+                } else if (longPressType === 'focus') {
+                    valueElement = document.getElementById('focus-value');
+                }
+                
+                if (valueElement) {
+                    valueElement.textContent = newValue;
+                }
+            }
+        }
+        
+        function updateRegistrationLongPress() {
+            if (longPressCurrentValue === null) return;
+            
+            const regMode = document.getElementById('reg-mode-shift').style.background === 'rgb(0, 123, 255)' ? 'shift' : 'stretch';
+            let newValue = longPressCurrentValue;
+            
+            if (longPressDirection === 'up') {
+                newValue = longPressCurrentValue + 1;
+            } else if (longPressDirection === 'down') {
+                newValue = longPressCurrentValue - 1;
+            } else if (longPressDirection === 'right') {
+                newValue = longPressCurrentValue + 1;
+            } else if (longPressDirection === 'left') {
+                newValue = longPressCurrentValue - 1;
+            }
+            
+            longPressCurrentValue = newValue;
+            
+            // Update UI immediately
+            if (longPressDirection === 'up' || longPressDirection === 'down') {
+                const yElement = regMode === 'shift' ? document.getElementById('reg-shift-y') : document.getElementById('reg-stretch-y');
+                yElement.textContent = `Y:${newValue}`;
+            } else {
+                const xElement = regMode === 'shift' ? document.getElementById('reg-shift-x') : document.getElementById('reg-stretch-x');
+                xElement.textContent = `X:${newValue}`;
+            }
+        }
+        
+        async function stopLongPress(type) {
+            // Prevent context menu if event exists
+            if (event) {
+                event.preventDefault();
+            }
+            
+            // Stop the interval
+            if (longPressInterval) {
+                clearInterval(longPressInterval);
+                longPressInterval = null;
+            }
+            
+            // Read the CURRENT value from UI (the final value displayed)
+            let finalValue = null;
+            if (type === 'zoom') {
+                finalValue = parseInt(document.getElementById('zoom-value').textContent) || 0;
+                await sendZoomValue(finalValue);
+            } else if (type === 'gain') {
+                finalValue = parseInt(document.getElementById('gain-value').textContent) || 0;
+                await sendGainValue(finalValue);
+            } else if (type === 'focus') {
+                finalValue = parseInt(document.getElementById('focus-value').textContent) || 0;
+                await sendFocusValue(finalValue);
+            } else if (type === 'reg') {
+                // For registration, get the value based on direction and mode
+                const regMode = document.getElementById('reg-mode-shift').style.background === 'rgb(0, 123, 255)' ? 'shift' : 'stretch';
+                if (longPressDirection === 'up' || longPressDirection === 'down') {
+                    const yElement = regMode === 'shift' ? document.getElementById('reg-shift-y') : document.getElementById('reg-stretch-y');
+                    finalValue = parseInt(yElement.textContent.split(':')[1]) || 0;
+                } else {
+                    const xElement = regMode === 'shift' ? document.getElementById('reg-shift-x') : document.getElementById('reg-stretch-x');
+                    finalValue = parseInt(xElement.textContent.split(':')[1]) || 0;
+                }
+                await sendRegistrationValue(longPressDirection, finalValue);
+            }
+            
+            // Reset state
+            longPressType = null;
+            longPressDirection = null;
+            longPressCurrentValue = null;
+            longPressOriginalValue = null;
+            longPressMin = null;
+            longPressMax = null;
+        }
+        
+        async function sendZoomValue(targetValue) {
             try {
-                const response = await fetch('/zoom_increase', { method: 'POST' });
+                // Read current value from UI (the final value after long press)
+                const currentValue = parseInt(document.getElementById('zoom-value').textContent) || 0;
+                
+                // Send ONE command with the absolute target value
+                const response = await fetch('/set_zoom', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ value: targetValue })
+                });
                 const result = await response.json();
                 if (result.success) {
-                    document.getElementById('zoom-value').textContent = result.zoom_value;
-                    logToConsole(`Zoom increased to ${result.zoom_value}`);
+                    // Background listener will update the value when response arrives
+                } else {
+                    logToConsole(`Zoom error: ${result.error}`);
                 }
             } catch (error) {
                 logToConsole(`Zoom error: ${error.message}`);
             }
         }
         
-        async function zoomDecrease() {
+        async function sendGainValue(targetValue) {
             try {
-                const response = await fetch('/zoom_decrease', { method: 'POST' });
+                // Read current value from UI (the final value after long press)
+                const currentValue = parseInt(document.getElementById('gain-value').textContent) || 0;
+                
+                // Send ONE command with the absolute target value
+                const response = await fetch('/set_gain', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ value: targetValue })
+                });
                 const result = await response.json();
                 if (result.success) {
-                    document.getElementById('zoom-value').textContent = result.zoom_value;
-                    logToConsole(`Zoom decreased to ${result.zoom_value}`);
+                    // Background listener will update the value when response arrives
+                } else {
+                    logToConsole(`Gain error: ${result.error}`);
                 }
             } catch (error) {
-                logToConsole(`Zoom error: ${error.message}`);
+                logToConsole(`Gain error: ${error.message}`);
             }
+        }
+        
+        async function sendFocusValue(targetValue) {
+            try {
+                // Read current value from UI (the final value after long press)
+                const currentValue = parseInt(document.getElementById('focus-value').textContent) || 0;
+                
+                // Send ONE command with the absolute target value
+                const response = await fetch('/set_focus', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ value: targetValue })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    // Background listener will update the value when response arrives
+                } else {
+                    logToConsole(`Focus error: ${result.error}`);
+                }
+            } catch (error) {
+                logToConsole(`Focus error: ${error.message}`);
+            }
+        }
+        
+        async function sendRegistrationValue(direction, targetValue) {
+            try {
+                // Send ONE command with the absolute target value
+                const response = await fetch('/set_registration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        direction: direction,
+                        value: targetValue 
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    updateRegistrationValues(result);
+                } else {
+                    logToConsole(`Registration error: ${result.error}`);
+                }
+            } catch (error) {
+                logToConsole(`Registration error: ${error.message}`);
+            }
+        }
+        
+        // ============================================
+        // ZOOM FUNCTIONS (kept for single clicks if needed)
+        // ============================================
+        async function zoomIncrease() {
+            await sendZoomValue(parseInt(document.getElementById('zoom-value').textContent) + 1);
+        }
+        
+        async function zoomDecrease() {
+            await sendZoomValue(parseInt(document.getElementById('zoom-value').textContent) - 1);
         }
         
         async function zoomOk() {

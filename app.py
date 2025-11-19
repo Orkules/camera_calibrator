@@ -93,9 +93,6 @@ def init_components():
     # Pass log callback to terminal manager
     terminal_manager = TerminalManager(config, log_callback=add_console_message)
     
-    # Register callbacks for automatic value updates
-    register_terminal_callbacks()
-    
     stream_processor = StreamProcessor(
         rtsp_url=config.get('stream', {}).get('rtsp_url', 'rtsp://192.168.0.100:9079/vis')
     )
@@ -132,8 +129,10 @@ def register_terminal_callbacks():
     motor_max_pattern = None
     if 'operations' in config and 'motor_max_script' in config['operations']:
         for step in config['operations']['motor_max_script']:
-            if step.get('response'):
-                motor_max_pattern = step.get('response')
+            response = step.get('response')
+            # Skip None values, but keep looking for actual response pattern
+            if response is not None and response != 'None' and response:
+                motor_max_pattern = response
                 break
     
     # Collect all response patterns from config
@@ -165,12 +164,16 @@ def register_terminal_callbacks():
     
     # Add motor_max pattern
     if motor_max_pattern:
+        logging.info(f"Found motor_max_pattern in config: '{motor_max_pattern}'")
         if motor_max_pattern not in response_to_globals:
             response_to_globals[motor_max_pattern] = []
         # Motor max should be positive
         def validate_motor_max(val):
             return val > 0
         response_to_globals[motor_max_pattern].append(('motor_max', validate_motor_max))
+        logging.info(f"Added motor_max callback for pattern '{motor_max_pattern}'")
+    else:
+        logging.warning("motor_max_pattern not found in config operations!")
     
     # Create and register callbacks for each response pattern
     for response_pattern, global_vars in response_to_globals.items():
@@ -191,8 +194,15 @@ def register_terminal_callbacks():
                                 globals()['focus_value'] = parsed
                                 logging.info(f"Auto-updated focus value: {parsed} from {response}")
                             elif global_var_name == 'motor_max':
+                                old_value = globals()['motor_max']
                                 globals()['motor_max'] = parsed
-                                logging.info(f"Auto-updated motor max: {parsed} from {response}")
+                                logging.info(f"Motor max updated: {old_value} -> {parsed} from response: {response}")
+                                add_console_message(f"Motor max updated: {parsed}")
+                                # Update calibration file asynchronously (don't block callback)
+                                def update_file_async():
+                                    time.sleep(0.1)  # Small delay to avoid blocking
+                                    initialize_calibration_file()
+                                threading.Thread(target=update_file_async, daemon=True).start()
                             elif global_var_name == 'reg_offset_x':
                                 globals()['reg_offset_x'] = parsed
                                 logging.info(f"Auto-updated UV offset X: {parsed} from {response}")
@@ -209,7 +219,7 @@ def register_terminal_callbacks():
         
         callback_func = make_callback(response_pattern, global_vars)
         terminal_manager.register_response_callback(response_pattern, callback_func)
-        logging.debug(f"Registered callback for pattern '{response_pattern}' -> {[v[0] for v in global_vars]}")
+        logging.info(f"Registered callback for pattern '{response_pattern}' -> {[v[0] for v in global_vars]}")
     
     logging.info(f"Registered {len(response_to_globals)} terminal response callbacks from config")
 
@@ -372,6 +382,16 @@ def execute_operation_from_config(operation_name: str):
     
     # Execute each step in the operation sequence
     for step in operation_config:
+        # Check if this step is a delay
+        if 'delay' in step:
+            delay_ms = step.get('delay', 0)
+            if delay_ms > 0:
+                import time
+                delay_seconds = delay_ms / 1000.0
+                logging.info(f"Waiting {delay_ms}ms ({delay_seconds}s) before next step...")
+                time.sleep(delay_seconds)
+            continue
+        
         terminal_name = step.get('terminal')
         command = step.get('command', '')
         response_pattern = step.get('response')
@@ -408,25 +428,90 @@ def find_motor_max() -> int:
     """
     Find motor maximum position by executing motor_max_script.
     Background listener will catch the response and update motor_max via callback.
+    This function waits for the callback to update the value.
     
     Returns:
         Motor max value as integer, or None if failed
     """
-    global motor_max
+    global motor_max, terminal_manager, config
+    
+    if terminal_manager is None or config is None:
+        logging.error("Terminal manager or config not initialized")
+        return None
     
     logging.info("Finding motor max position...")
-    result = execute_operation_from_config('motor_max_script')
+    add_console_message("Finding motor max position...")
     
-    # Wait a bit for background listener to catch the response
-    import time
-    time.sleep(0.5)  # Give time for response to arrive and be processed
-    
-    if motor_max is not None:
-        logging.info(f"Motor max position found: {motor_max}")
-        return motor_max
-    else:
-        logging.error("Failed to find motor max position")
+    operation_config = config.get('operations', {}).get('motor_max_script')
+    if not operation_config:
+        logging.error("motor_max_script not found in config")
+        add_console_message("ERROR: motor_max_script not found in config")
         return None
+    
+    # Store initial motor_max value
+    initial_motor_max = motor_max
+    logging.info(f"Initial motor_max value: {initial_motor_max}")
+    
+    # Execute each step in the operation sequence (send commands, background listener will catch responses)
+    for step in operation_config:
+        # Handle delay
+        if 'delay' in step:
+            delay_ms = step.get('delay', 0)
+            if delay_ms > 0:
+                delay_seconds = delay_ms / 1000.0
+                logging.info(f"Waiting {delay_ms}ms ({delay_seconds}s) before next step...")
+                time.sleep(delay_seconds)
+            continue
+        
+        terminal_name = step.get('terminal')
+        command = step.get('command', '')
+        response_pattern = step.get('response')
+        
+        terminal = terminal_manager.get_terminal(terminal_name)
+        if not terminal:
+            logging.error(f"Terminal '{terminal_name}' not found")
+            return None
+        
+        if not terminal.serial_conn or not terminal.serial_conn.is_open:
+            logging.error(f"Terminal '{terminal_name}' is not connected")
+            return None
+        
+        # Send command - background listener will catch the response
+        if response_pattern:
+            logging.info(f"Sending command '{command}' to terminal '{terminal_name}' (expecting pattern: {response_pattern})...")
+        else:
+            logging.info(f"Sending command '{command}' to terminal '{terminal_name}' (no response expected)...")
+        add_console_message(f"Sending: {command} to {terminal_name}")
+        terminal.send_command(command, wait_for_response=False)
+        
+        # Only wait for response if this step expects one
+        if response_pattern and response_pattern != "None":
+            # Wait for callback to update motor_max (max 20 seconds, script has 10s delay)
+            max_wait_time = 20.0
+            start_time = time.time()
+            logging.info(f"Waiting for response matching pattern '{response_pattern}' (max {max_wait_time}s)...")
+            add_console_message(f"Waiting for response: {response_pattern}")
+            while time.time() - start_time < max_wait_time:
+                # Check if motor_max was updated (either from None to a value, or changed value)
+                if motor_max is not None and motor_max > 0:
+                    if initial_motor_max is None or initial_motor_max == 0 or motor_max != initial_motor_max:
+                        logging.info(f"Motor max updated via callback: {motor_max}")
+                        add_console_message(f"Motor max found: {motor_max}")
+                        return motor_max
+                elapsed = time.time() - start_time
+                if int(elapsed) % 2 == 0 and elapsed > 0.5:  # Log every 2 seconds
+                    logging.debug(f"Still waiting for motor_max... (elapsed: {elapsed:.1f}s, current: {motor_max})")
+                time.sleep(0.2)  # Check every 200ms (less frequent to reduce CPU)
+            
+            logging.warning(f"Timeout waiting for motor max response via callback. Current value: {motor_max}")
+            add_console_message(f"WARNING: Timeout waiting for motor max. Current value: {motor_max}")
+    
+    # Return current motor_max (may have been updated by callback)
+    if motor_max is not None and motor_max > 0:
+        return motor_max
+    
+    logging.warning("Motor max script completed but no valid value received")
+    return motor_max
 
 
 def terminal_initialization():
@@ -474,15 +559,126 @@ def terminal_initialization():
     time.sleep(0.1)
     logging.info(f"Initialized UV magnify Y: {reg_stretch_y}")
     
-    # Find motor max position
-    motor_max_val = find_motor_max()
-    if motor_max_val is not None:
-        motor_max = motor_max_val
-        logging.info(f"Motor max initialized: {motor_max}")
+    # Find motor max position (waits for response)
+    motor_max_result = find_motor_max()
+    if motor_max_result is not None and motor_max_result > 0:
+        logging.info(f"Initialized motor max: {motor_max}")
+        # Initialize calibration file with motor_max (only if we got a valid value)
+        # Note: If motor_max updates later via callback, the file will be updated asynchronously
+        initialize_calibration_file()
     else:
-        logging.warning("Failed to find motor max position")
+        logging.warning(f"Motor max initialization failed or returned invalid value: {motor_max}")
+        # Don't create file with 0 - wait for callback to update it later
     
     logging.info("Terminal initialization completed")
+
+
+def save_calibration_to_file(calibration_type: str, values: dict):
+    """
+    Save calibration data to YAML file.
+    If entry of same type exists, it will be overwritten.
+    
+    Args:
+        calibration_type: Type of calibration ('zoom', 'focus', 'gain', 'registration')
+        values: Dictionary with calibration values including zoom_value
+    """
+    global motor_max, zoom_value
+    
+    calibration_file = Path(__file__).parent / 'calibration_files' / 'calibrated_file.yaml'
+    
+    # Load existing data or create new structure
+    if calibration_file.exists():
+        try:
+            with open(calibration_file, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
+        except Exception as e:
+            logging.warning(f"Error loading calibration file: {e}, creating new file")
+            data = {}
+    else:
+        data = {}
+    
+    # Initialize structure if needed
+    if 'motor_max' not in data:
+        data['motor_max'] = motor_max if motor_max is not None else 0
+    
+    if 'calibrations' not in data:
+        data['calibrations'] = []
+    
+    # Create calibration entry (without timestamp)
+    entry = {
+        'type': calibration_type,
+        'zoom': zoom_value,
+        **values  # Add all other values
+    }
+    
+    # Find existing entry of same type and replace it, or add new one
+    found = False
+    for i, existing_entry in enumerate(data['calibrations']):
+        if existing_entry.get('type') == calibration_type:
+            data['calibrations'][i] = entry  # Overwrite existing entry
+            found = True
+            break
+    
+    if not found:
+        # Add new entry if not found
+        data['calibrations'].append(entry)
+    
+    # Save to file
+    try:
+        # Ensure directory exists
+        calibration_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(calibration_file, 'w', encoding='utf-8') as f:
+            yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        
+        logging.info(f"Calibration saved: {calibration_type} at zoom {zoom_value}")
+        return True
+    except Exception as e:
+        logging.error(f"Error saving calibration file: {e}", exc_info=True)
+        return False
+
+
+def initialize_calibration_file():
+    """Initialize calibration file with motor_max value."""
+    global motor_max
+    
+    calibration_file = Path(__file__).parent / 'calibration_files' / 'calibrated_file.yaml'
+    
+    # Use 0 as default if motor_max is not available yet
+    current_motor_max = motor_max if (motor_max is not None and motor_max > 0) else 0
+    
+    # Load existing data or create new structure
+    if calibration_file.exists():
+        try:
+            with open(calibration_file, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
+            # Update motor_max if it changed or if it's 0 and we have a new value
+            if 'motor_max' not in data or (data['motor_max'] != current_motor_max and current_motor_max > 0):
+                data['motor_max'] = current_motor_max
+                # Ensure calibrations list exists
+                if 'calibrations' not in data:
+                    data['calibrations'] = []
+                # Save updated motor_max
+                with open(calibration_file, 'w', encoding='utf-8') as f:
+                    yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+                logging.info(f"Calibration file motor_max updated to: {current_motor_max}")
+            return
+        except Exception as e:
+            logging.warning(f"Error loading calibration file: {e}, creating new file")
+    
+    # Initialize new file with motor_max (even if 0, it will be updated later)
+    data = {
+        'motor_max': current_motor_max,
+        'calibrations': []
+    }
+    
+    try:
+        calibration_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(calibration_file, 'w', encoding='utf-8') as f:
+            yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        logging.info(f"Calibration file initialized with motor_max: {current_motor_max}")
+    except Exception as e:
+        logging.error(f"Error initializing calibration file: {e}", exc_info=True)
 
 
 def get_value_from_config(get_command_name: str) -> int:
@@ -610,6 +806,9 @@ def connect_terminals():
         init_components()
     
     if terminal_manager.connect_all():
+        # Register callbacks for automatic value updates (after connection)
+        register_terminal_callbacks()
+        
         # Start background listener for automatic response parsing
         terminal_manager.start_listener()
         
@@ -663,12 +862,43 @@ def zoom_decrease():
         return jsonify({'success': False, 'error': 'Failed to send zoom command to terminal'})
 
 
+@app.route('/set_zoom', methods=['POST'])
+def set_zoom():
+    """Set zoom to absolute value"""
+    global zoom_value
+    
+    data = request.get_json()
+    target_value = data.get('value')
+    
+    if target_value is None:
+        return jsonify({'success': False, 'error': 'Value not provided'})
+    
+    if target_value < 0 or target_value > 26:
+        return jsonify({'success': False, 'error': 'Zoom value out of range (0-26)'})
+    
+    # Send command to terminal with absolute target value
+    success, response, parsed_value = execute_command_from_config('zoom_command', target_value)
+    
+    if success:
+        # Command sent - background listener will update zoom_value when response arrives
+        return jsonify({'success': True, 'zoom_value': zoom_value})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to send zoom command to terminal'})
+
+
 @app.route('/zoom_ok', methods=['POST'])
 def zoom_ok():
     """Save zoom value to calibration file"""
     global zoom_value
-    # TODO: Save zoom_value to calibration file
-    return jsonify({'success': True, 'message': f'Zoom value {zoom_value} saved to calibration file'})
+    
+    values = {
+        'zoom_value': zoom_value
+    }
+    
+    if save_calibration_to_file('zoom', values):
+        return jsonify({'success': True, 'message': f'Zoom value {zoom_value} saved to calibration file'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to save zoom value to calibration file'})
 
 
 @app.route('/get_zoom', methods=['GET'])
@@ -821,11 +1051,62 @@ def reg_right():
             return jsonify({'success': False, 'error': 'Failed to send UV magnify X command'})
 
 
+@app.route('/set_registration', methods=['POST'])
+def set_registration():
+    """Set registration to absolute values"""
+    global reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y, registration_mode
+    
+    data = request.get_json()
+    direction = data.get('direction')  # 'up', 'down', 'left', 'right'
+    target_value = data.get('value')
+    
+    if direction is None or target_value is None:
+        return jsonify({'success': False, 'error': 'Direction or value not provided'})
+    
+    if registration_mode == "shift":
+        if direction in ['up', 'down']:
+            # Send command to terminal with absolute target value
+            success, response, parsed_value = execute_command_from_config('uv_offset_y_command', target_value)
+        else:  # left, right
+            success, response, parsed_value = execute_command_from_config('uv_offset_x_command', target_value)
+    else:  # stretch_compress
+        if direction in ['up', 'down']:
+            success, response, parsed_value = execute_command_from_config('uv_magnify_y_command', target_value)
+        else:  # left, right
+            success, response, parsed_value = execute_command_from_config('uv_magnify_x_command', target_value)
+    
+    if success:
+        return jsonify({
+            'success': True,
+            'offset_x': reg_offset_x,
+            'offset_y': reg_offset_y,
+            'stretch_x': reg_stretch_x,
+            'stretch_y': reg_stretch_y
+        })
+    else:
+        return jsonify({'success': False, 'error': 'Failed to send registration command'})
+
+
 @app.route('/reg_ok', methods=['POST'])
 def reg_ok():
-    """Registration OK button"""
-    # TODO: Implement registration OK
-    return jsonify({'success': True, 'message': 'Registration: OK'})
+    """Registration OK button - saves all registration values (both shift and stretch/compress)"""
+    global reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y
+    
+    # Save all four values (both shift and stretch/compress)
+    values = {
+        'offset_x': reg_offset_x,      # Shift X
+        'offset_y': reg_offset_y,      # Shift Y
+        'stretch_x': reg_stretch_x,    # Stretch/Compress X
+        'stretch_y': reg_stretch_y     # Stretch/Compress Y
+    }
+    
+    if save_calibration_to_file('registration', values):
+        return jsonify({
+            'success': True, 
+            'message': f'Registration values saved: shift({reg_offset_x}, {reg_offset_y}), stretch({reg_stretch_x}, {reg_stretch_y})'
+        })
+    else:
+        return jsonify({'success': False, 'error': 'Failed to save registration values to calibration file'})
 
 
 @app.route('/set_registration_mode', methods=['POST'])
@@ -869,13 +1150,24 @@ def get_registration_mode():
 @app.route('/focus_increase', methods=['POST'])
 def focus_increase():
     """Increase focus value"""
-    global focus_value
+    global focus_value, motor_max
     
-    if focus_value < 75:
-        focus_value += 1
-        # TODO: Send command to terminal
+    if motor_max is None or motor_max == 0:
+        return jsonify({'success': False, 'error': 'Motor max not initialized'})
+    
+    if focus_value >= motor_max:
+        return jsonify({'success': False, 'error': 'Focus at maximum'})
+    
+    new_value = focus_value + 1
+    
+    # Send command to terminal - background listener will update focus_value via callback
+    success, response, parsed_value = execute_command_from_config('focus_command', new_value)
+    
+    if success:
+        # Command sent - background listener will update focus_value when response arrives
         return jsonify({'success': True, 'focus_value': focus_value})
-    return jsonify({'success': False, 'error': 'Focus at maximum'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to send focus command to terminal'})
 
 
 @app.route('/focus_decrease', methods=['POST'])
@@ -883,19 +1175,61 @@ def focus_decrease():
     """Decrease focus value"""
     global focus_value
     
-    if focus_value > 0:
-        focus_value -= 1
-        # TODO: Send command to terminal
+    if focus_value <= 0:
+        return jsonify({'success': False, 'error': 'Focus at minimum'})
+    
+    new_value = focus_value - 1
+    
+    # Send command to terminal - background listener will update focus_value via callback
+    success, response, parsed_value = execute_command_from_config('focus_command', new_value)
+    
+    if success:
+        # Command sent - background listener will update focus_value when response arrives
         return jsonify({'success': True, 'focus_value': focus_value})
-    return jsonify({'success': False, 'error': 'Focus at minimum'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to send focus command to terminal'})
+
+
+@app.route('/set_focus', methods=['POST'])
+def set_focus():
+    """Set focus to absolute value"""
+    global focus_value, motor_max
+    
+    data = request.get_json()
+    target_value = data.get('value')
+    
+    if target_value is None:
+        return jsonify({'success': False, 'error': 'Value not provided'})
+    
+    if motor_max is None or motor_max == 0:
+        return jsonify({'success': False, 'error': 'Motor max not initialized'})
+    
+    if target_value < 0 or target_value > motor_max:
+        return jsonify({'success': False, 'error': f'Focus value out of range (0-{motor_max})'})
+    
+    # Send command to terminal with absolute target value
+    success, response, parsed_value = execute_command_from_config('focus_command', target_value)
+    
+    if success:
+        # Command sent - background listener will update focus_value when response arrives
+        return jsonify({'success': True, 'focus_value': focus_value})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to send focus command to terminal'})
 
 
 @app.route('/focus_ok', methods=['POST'])
 def focus_ok():
     """Save focus value to calibration file"""
     global focus_value
-    # TODO: Save focus_value to calibration file
-    return jsonify({'success': True, 'message': f'Focus value {focus_value} saved to calibration file'})
+    
+    values = {
+        'focus_value': focus_value
+    }
+    
+    if save_calibration_to_file('focus', values):
+        return jsonify({'success': True, 'message': f'Focus value {focus_value} saved to calibration file'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to save focus value to calibration file'})
 
 
 @app.route('/smart_focus', methods=['POST'])
@@ -955,12 +1289,44 @@ def gain_decrease():
         return jsonify({'success': False, 'error': 'Failed to send gain command to terminal'})
 
 
+@app.route('/set_gain', methods=['POST'])
+def set_gain():
+    """Set gain to absolute value"""
+    global gain_value
+    
+    data = request.get_json()
+    target_value = data.get('value')
+    
+    if target_value is None:
+        return jsonify({'success': False, 'error': 'Value not provided'})
+    
+    if target_value < 0 or target_value > 255:
+        return jsonify({'success': False, 'error': 'Gain value out of range (0-255)'})
+    
+    # Send command to terminal with absolute target value
+    success, response, parsed_value = execute_command_from_config('gain_command', target_value)
+    
+    if success:
+        # Command sent - background listener will update gain_value when response arrives
+        return jsonify({'success': True, 'gain_value': gain_value})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to send gain command to terminal'})
+
+
 @app.route('/gain_ok', methods=['POST'])
 def gain_ok():
     """Save gain value to calibration file"""
-    global gain_value
-    # TODO: Save gain_value to calibration file
-    return jsonify({'success': True, 'message': f'Gain value {gain_value} saved to calibration file'})
+    global gain_value, gain_mode
+    
+    values = {
+        'gain_value': gain_value,
+        'gain_mode': gain_mode
+    }
+    
+    if save_calibration_to_file('gain', values):
+        return jsonify({'success': True, 'message': f'Gain value {gain_value} saved to calibration file'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to save gain value to calibration file'})
 
 
 @app.route('/toggle_gain_mode', methods=['POST'])
@@ -1119,12 +1485,15 @@ def stop_update_thread():
 
 
 if __name__ == '__main__':
-    # Setup logging
+    # Setup logging - only WARNING and above for Flask/Werkzeug to reduce noise
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
+    
+    # Disable Flask/Werkzeug request logging (too verbose)
+    logging.getLogger('werkzeug').setLevel(logging.WARNING)
     
     # Add initial console message
     add_console_message("Application started")
@@ -1135,6 +1504,6 @@ if __name__ == '__main__':
     # Start interval update thread
     start_update_thread()
     
-    # Run Flask app
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Run Flask app (debug=False to reduce logging)
+    app.run(debug=False, host='0.0.0.0', port=5000)
 

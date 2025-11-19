@@ -265,12 +265,18 @@ class TerminalManager:
             for pattern, callbacks in self.response_callbacks.items():
                 # Convert pattern to regex (e.g., "MZR<val>" -> "MZR(-?\d+)")
                 regex_pattern = pattern.replace('<val>', r'(-?\d+)')
-                if re.search(regex_pattern, message):
+                match = re.search(regex_pattern, message)
+                if match:
+                    logging.info(f"Pattern '{pattern}' (regex: '{regex_pattern}') MATCHED message '{message}' from {terminal_name}")
                     for callback in callbacks:
                         try:
                             callback(terminal_name, message)
                         except Exception as e:
-                            logging.error(f"Error in callback for pattern '{pattern}': {e}")
+                            logging.error(f"Error in callback for pattern '{pattern}': {e}", exc_info=True)
+                else:
+                    # Log if this looks like a motor response but didn't match
+                    if 'MIOR' in message:
+                        logging.warning(f"Message '{message}' contains 'MIOR' but pattern '{pattern}' (regex: '{regex_pattern}') did NOT match!")
     
     def _background_listener(self):
         """Background thread that continuously reads from all terminals."""

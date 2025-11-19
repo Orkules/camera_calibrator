@@ -4,7 +4,7 @@ stream:
   rtsp_url: "rtsp://192.168.0.100:9079/vis"
 
 settings:
-  update_interval_ms: 50000  # Interval for auto-updating zoom, gain, focus values from terminal
+  update_interval_ms: 500000  # Interval for auto-updating zoom, gain, focus values from terminal
 
 terminals:
   - name: "Linux"
@@ -51,13 +51,17 @@ operations:
       command: "AFS0" # Disable auto focus
       response: None
 
+    
+
     - terminal: FPGA 
       command: "MRS0 255" # homing the motor
       response: None
 
+    - delay: 10000 # 10 seconds
+
     - terminal: FPGA 
       command: "MIOQ7" # get the motor MAX POSITION
-      response: "MIOR-<val>"
+      response: "MIOR<val>"
 
     # - terminal: Debug
     #   command: "AFS1" # Enable auto focus
@@ -67,6 +71,18 @@ operations:
 
 
 commands:
+
+  #change camera to static ip 
+  set_camera_ip_command:
+    - terminal: Debug
+      command: "NETISETH0 STATIC 192.168.0.100 255.255.255.0 0.0.0.0"
+      response: None
+
+  # anble rtsp stream
+  enable_rtsp_stream_command:
+    - terminal: Debug
+      command: "STRS1"
+      response: None
 
   # change zoom
 
@@ -78,17 +94,17 @@ commands:
 
   # change focus
   focus_command:
-    - terminal: Debug
-      command: "AFS0" # Disable auto focus
-      response: None
-
     # - terminal: Debug
-    #   command: "MFS<val>" #value is 0 - 75 (0 = 10 deg, 10 = 5 deg , 20 = 2.5 deg , 26 = 1 deg) manual focus value
+    #   command: "AFS0" # Disable auto focus
     #   response: None
 
-    - terminal: FPGA
-      command: "MIOS1<val>" #Value between 0 - motor max ( currently 30000)
-      response: "MIOR-<val>"
+    - terminal: Debug
+      command: "MFS<val>" #value is 0 - 75  manual focus value
+      response: "MFR<val>"
+
+    # - terminal: FPGA
+    #   command: "MIOS1<val>" #Value between 0 - motor max ( currently 30000)
+    #   response: "MIOR-<val>"
 
   gain_command:
     - terminal: Debug
@@ -121,6 +137,13 @@ commands:
 
 get_values:
 
+
+  # # get motor max value
+  get_motor_max_value:
+    - terminal: FPGA
+      command: "MIOQ7" # get the motor max value
+      response: "MIOR<val>"
+
   # get zoom value
   get_zoom_value:
     - terminal: Debug
@@ -134,15 +157,17 @@ get_values:
       response: "GAR<val>"
 
   # get focus value
-  # get_focus_value:
-  #   - terminal: Debug
-  #     command: "MFQ" # get the manual focus value
-  #     response: "MFR<val>"
-
   get_focus_value:
-    - terminal: FPGA
-      command: "MIOQ1" # get the manual focus value
-      response: "MIOR<val>"
+    - terminal: Debug
+      command: "MFQ" # get the manual focus value
+      response: "MFR<val>"
+
+
+
+  # get_focus_value:
+  #   - terminal: FPGA
+  #     command: "MIOQ1" # get the manual focus value
+  #     response: "MIOR<val>"
 
   # # get motor position
   # get_motor_position:

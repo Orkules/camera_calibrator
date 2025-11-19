@@ -1,0 +1,8 @@
+motor_max: 35723
+calibrations:
+- type: registration
+  zoom: 0
+  offset_x: 139
+  offset_y: 130
+  stretch_x: 12743
+  stretch_y: 14070
