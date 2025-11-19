@@ -691,7 +691,8 @@ def terminal_initialization():
 def save_calibration_to_file(calibration_type: str, values: dict):
     """
     Save calibration data to YAML file.
-    If entry of same type exists, it will be overwritten.
+    If entry of same type AND zoom value exists, it will be overwritten.
+    Otherwise, a new entry will be added (allowing multiple entries of same type with different zoom values).
     
     Args:
         calibration_type: Type of calibration ('zoom', 'focus', 'gain', 'registration')
@@ -727,16 +728,16 @@ def save_calibration_to_file(calibration_type: str, values: dict):
         **values  # Add all other values
     }
     
-    # Find existing entry of same type and replace it, or add new one
+    # Find existing entry of same type AND zoom value and replace it, or add new one
     found = False
     for i, existing_entry in enumerate(data['calibrations']):
-        if existing_entry.get('type') == calibration_type:
-            data['calibrations'][i] = entry  # Overwrite existing entry
+        if existing_entry.get('type') == calibration_type and existing_entry.get('zoom') == zoom_value:
+            data['calibrations'][i] = entry  # Overwrite existing entry (same type AND zoom)
             found = True
             break
     
     if not found:
-        # Add new entry if not found
+        # Add new entry if not found (different zoom value or new type)
         data['calibrations'].append(entry)
     
     # Create ordered dict with header fields first

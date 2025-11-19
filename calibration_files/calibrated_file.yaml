@@ -5,8 +5,8 @@ calibrations:
 - type: focus
   zoom: 0
   focus_value: 40
-  vis_position: 22171
-  uv_position: 9205
+  vis_position: 18788
+  uv_position: 8203
   zoom_status: wide
   distance: 0
 - type: gain
@@ -20,3 +20,10 @@ calibrations:
   offset_y: 166
   stretch_x: 9588
   stretch_y: 10631
+- type: focus
+  zoom: 1
+  focus_value: 44
+  vis_position: 18788
+  uv_position: 8203
+  zoom_status: wide
+  distance: 0
