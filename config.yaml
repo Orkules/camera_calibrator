@@ -4,7 +4,7 @@ stream:
   rtsp_url: "rtsp://192.168.0.100:9079/vis"
 
 settings:
-  update_interval_ms: 500000  # Interval for auto-updating zoom, gain, focus values from terminal
+  update_interval_ms: 3000  # Interval for auto-updating zoom, gain, focus values from terminal
 
 terminals:
   - name: "Linux"
@@ -106,11 +106,36 @@ commands:
     #   command: "MIOS1<val>" #Value between 0 - motor max ( currently 30000)
     #   response: "MIOR-<val>"
 
+  auto_focus_command:
+    - terminal: Debug
+      command: "AFS1" # Enable auto focus
+      response: None
+  manual_focus_command:
+    - terminal: Debug
+      command: "AFS0" # Disable auto focus
+      response: None
+
   gain_command:
     - terminal: Debug
       command: "GAS<val>" #value is 0 - 255 
       response: "GAR<val>"
 
+  set_max_gain_command:
+    - terminal: Debug
+      command: "GAMXS"
+      response: "GAMXR<val>"
+  set_medium_gain_command:
+    - terminal: Debug
+      command: "GAZOS"
+      response: "GAZOR<val>"
+  set_min_gain_command:
+    - terminal: Debug
+      command: "GAMNS"
+      response: "GAMNR<val>"
+  clear_gain_value_command:
+    - terminal: Debug
+      command: "GACCS"
+      response: None
 # UV calibration - magnification (width/height)
   uv_magnify_x_command:
     - terminal: FPGA
@@ -169,10 +194,10 @@ get_values:
   #     command: "MIOQ1" # get the manual focus value
   #     response: "MIOR<val>"
 
-  # # get motor position
-  # get_motor_position:
+  # get motor position
+  # get_uv_motor_position:
   #   - terminal: FPGA
-  #     command: "MIOQ5"
+  #     command: "MIOQ1"
   #     response: "MIOR<val>"
 
   # get uv offset x value
@@ -198,3 +223,11 @@ get_values:
     - terminal: FPGA
       command: "UVRYQ"
       response: "UVRYR<val>"
+
+
+# Auto responses - responses that come automatically without sending a command
+# These are handled by the background listener
+auto_responses:
+  uv_vis_focus_info_response:
+    response: "set m<val1> <val2> (narrow|wide) <val3>"
+    handler: "parse_uv_vis_focus_info"

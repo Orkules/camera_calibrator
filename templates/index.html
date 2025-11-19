@@ -24,58 +24,8 @@
             margin: 0 auto;
         }
         
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #333;
-        }
-        
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: bold;
-        }
-        
-        /* Stream Display Section */
-        .stream-section {
-            flex: 3;
-            background: white;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .stream-title {
-            text-align: center;
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        
-        .stream-frame {
-            flex: 1;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #666;
-            min-height: 500px;
-            overflow: hidden;
-        }
-        
-        .stream-frame img {
-            width: 100%;
-            height: 100%;
-            object-fit: fill;
-        }
-        
-        /* Toolbar Section */
-        .toolbar-section {
+        /* Sidebar sections (left and right) */
+        .sidebar {
             flex: 1;
             background: white;
             border-radius: 10px;
@@ -85,6 +35,18 @@
             flex-direction: column;
             gap: 10px;
             overflow-y: auto;
+        }
+        
+        /* Center section (stream + console) */
+        .center-section {
+            flex: 2;
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
         
         .toolbar-box {
@@ -163,6 +125,247 @@
             background: #5a6268;
         }
         
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .btn:disabled:hover {
+            background: #6c757d;
+        }
+        
+        .btn-toggle {
+            width: auto;
+            min-width: 100px;
+            margin-top: 5px;
+            padding: 8px 10px;
+            background: #6c757d;
+            font-size: 11px;
+            line-height: 1.3;
+            height: auto;
+            white-space: normal;
+        }
+        
+        .btn-toggle.active {
+            background: #28a745;
+        }
+        
+        .btn-toggle.active:hover {
+            background: #218838;
+        }
+        
+        .focus-main-row {
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+            margin-bottom: 10px;
+        }
+        
+        .focus-control-vertical {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            flex-shrink: 0;
+            justify-content: center;
+            min-width: 80px;
+        }
+        
+        .focus-control-vertical .value-display {
+            min-width: 70px;
+            font-size: 16px;
+            padding: 8px 12px;
+        }
+        
+        .focus-info-section {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 2;
+            min-width: 0;
+        }
+        
+        .focus-info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .focus-info-item label {
+            font-size: 12px;
+            font-weight: bold;
+            min-width: 90px;
+        }
+        
+        .focus-info-item .value-display {
+            min-width: 100px;
+            font-size: 14px;
+            padding: 3px 8px;
+            flex: 1;
+        }
+        
+        .focus-ok-button {
+            width: 100%;
+            padding: 8px 15px;
+            margin-top: 5px;
+            align-self: flex-start;
+        }
+        
+        .focus-auto-button-wrapper {
+            display: flex;
+            align-items: stretch;
+            flex-shrink: 0;
+            min-width: 90px;
+        }
+        
+        .focus-auto-button-wrapper .btn-toggle {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-width: 90px;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        /* Stream frame */
+        .stream-frame {
+            flex: 1;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            min-height: 400px;
+            overflow: hidden;
+        }
+        
+        .stream-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: fill;
+        }
+        
+        /* Console section */
+        .console-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 200px;
+            max-height: 300px;
+        }
+        
+        .console-text {
+            flex: 1;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .console-input-row {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+            align-items: center;
+        }
+        
+        .terminal-select {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 12px;
+            background: white;
+            cursor: pointer;
+            min-width: 100px;
+        }
+        
+        .command-input {
+            flex: 1;
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .command-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        
+        /* Main controls */
+        .main-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .main-controls .btn {
+            flex: 1;
+        }
+        
+        .status {
+            text-align: center;
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 12px;
+            display: none;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        /* Input fields */
+        .input-field {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .input-label {
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 5px;
+            display: block;
+        }
         
         /* Gain section specific */
         .gain-info {
@@ -196,97 +399,181 @@
             font-size: 12px;
         }
         
-        /* Console section */
-        .console-box {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-height: 200px;
-        }
-        
-        .console-text {
-            flex: 1;
-            background: #1e1e1e;
-            color: #d4d4d4;
-            padding: 10px;
+        /* Info display box */
+        .info-box {
             border: 1px solid #ddd;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-        
-        /* Control buttons */
-        .main-controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        
-        .main-controls .btn {
-            flex: 1;
-        }
-        
-        .btn-danger {
-            background: #dc3545;
-        }
-        
-        .btn-danger:hover {
-            background: #c82333;
-        }
-        
-        .status {
-            text-align: center;
-            margin-top: 10px;
-            padding: 8px;
             border-radius: 5px;
-            font-weight: bold;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 5px 0;
+        }
+        
+        .info-row label {
             font-size: 12px;
-            display: none;
+            font-weight: bold;
         }
         
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
-        .status.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
+        .info-row .value-display {
+            min-width: 80px;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Stream Display Section -->
-        <div class="stream-section">
-            <div class="header">
-                <h1>Luminar Camera Calibration</h1>
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <!-- Camera Info Box -->
+            <div class="info-box">
+                <h3>Camera Information</h3>
+                <div class="info-row">
+                    <label>Motor Max:</label>
+                    <div class="value-display" id="motor-max-value">0</div>
+                </div>
+                <label class="input-label">Camera Serial Number:</label>
+                <input type="text" class="input-field" id="camera-serial" placeholder="Enter serial number">
+                <button class="btn" onclick="setCameraSerial()" style="margin-top: 5px; width: 100%;">Set Serial</button>
+                <label class="input-label">Technician Name:</label>
+                <input type="text" class="input-field" id="technician-name" placeholder="Enter technician name">
+                <button class="btn" onclick="setTechnicianName()" style="margin-top: 5px; width: 100%;">Set Name</button>
             </div>
-            <div class="stream-title">Processed Stream</div>
-            <div class="stream-frame" id="stream-frame">
-                <span>No stream active</span>
+            
+            <!-- Focus Calibration -->
+            <div class="toolbar-box">
+                <h3>Focus Calibration</h3>
+                <div class="focus-main-row">
+                    <!-- Left: Vertical arrows and value -->
+                    <div class="focus-control-vertical">
+                        <button class="btn btn-arrow" id="focus-increase-btn"
+                                onmousedown="startLongPress('focus', 1)" 
+                                onmouseup="stopLongPress('focus')"
+                                onmouseleave="stopLongPress('focus')"
+                                ontouchstart="startLongPress('focus', 1)"
+                                ontouchend="stopLongPress('focus')">▲</button>
+                        <div class="value-display" id="focus-value">0</div>
+                        <button class="btn btn-arrow" id="focus-decrease-btn"
+                                onmousedown="startLongPress('focus', -1)" 
+                                onmouseup="stopLongPress('focus')"
+                                onmouseleave="stopLongPress('focus')"
+                                ontouchstart="startLongPress('focus', -1)"
+                                ontouchend="stopLongPress('focus')">▼</button>
+                    </div>
+                    
+                    <!-- Middle: Auto Focus button (tall, same height as right section) -->
+                    <div class="focus-auto-button-wrapper">
+                        <button class="btn btn-toggle" id="auto-focus-btn" onclick="toggleAutoFocus()">
+                            <div>Auto</div>
+                            <div>Focus</div>
+                            <div id="auto-focus-status">OFF</div>
+                        </button>
+                    </div>
+                    
+                    <!-- Right: Info windows and OK button -->
+                    <div class="focus-info-section">
+                        <div class="focus-info-item">
+                            <label>VIS Position:</label>
+                            <div class="value-display" id="vis-position-value">0</div>
+                        </div>
+                        <div class="focus-info-item">
+                            <label>UV Position:</label>
+                            <div class="value-display" id="uv-position-value">0</div>
+                        </div>
+                        <div class="focus-info-item">
+                            <label>Zoom Status:</label>
+                            <div class="value-display" id="zoom-status-value">-</div>
+                        </div>
+                        <div class="focus-info-item">
+                            <label>Distance:</label>
+                            <div class="value-display" id="distance-value">0</div>
+                        </div>
+                        <button class="btn focus-ok-button" onclick="focusOk()">OK</button>
+                    </div>
+                </div>
+                <button class="btn btn-smart" onclick="smartFocus()">Smart Calibration</button>
             </div>
+            
+            <!-- Gain Calibration -->
+            <div class="toolbar-box">
+                <h3>Gain Calibration</h3>
+                <div class="control-row">
+                    <button class="btn btn-arrow" 
+                            onmousedown="startLongPress('gain', -1, 0, 255)" 
+                            onmouseup="stopLongPress('gain')"
+                            onmouseleave="stopLongPress('gain')"
+                            ontouchstart="startLongPress('gain', -1, 0, 255)"
+                            ontouchend="stopLongPress('gain')">◄</button>
+                    <div class="value-display" id="gain-value">0</div>
+                    <button class="btn btn-arrow" 
+                            onmousedown="startLongPress('gain', 1, 0, 255)" 
+                            onmouseup="stopLongPress('gain')"
+                            onmouseleave="stopLongPress('gain')"
+                            ontouchstart="startLongPress('gain', 1, 0, 255)"
+                            ontouchend="stopLongPress('gain')">►</button>
+                    <button class="btn" onclick="startGainCounting()" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;">Start Counting</button>
+                </div>
+                <!-- Set Min/Medium/Max buttons -->
+                <div style="display: flex; gap: 5px; margin: 5px 0;">
+                    <button class="btn btn-mode" onclick="setGainMin()" style="flex: 1; font-size: 12px;">Set Min</button>
+                    <button class="btn btn-mode" onclick="setGainMedium()" style="flex: 1; font-size: 12px;">Set Medium</button>
+                    <button class="btn btn-mode" onclick="setGainMax()" style="flex: 1; font-size: 12px;">Set Max</button>
+                </div>
+                <!-- Min/Medium/Max value displays -->
+                <div style="display: flex; gap: 5px; margin: 5px 0;">
+                    <div class="value-display" id="gain-min-value" style="flex: 1; font-size: 14px;">0</div>
+                    <div class="value-display" id="gain-medium-value" style="flex: 1; font-size: 14px;">0</div>
+                    <div class="value-display" id="gain-max-value" style="flex: 1; font-size: 14px;">0</div>
+                </div>
+                <!-- Clear and OK buttons -->
+                <div style="display: flex; gap: 5px; margin: 5px 0;">
+                    <button class="btn" onclick="clearGainValues()" style="flex: 1; font-size: 12px;">Clear</button>
+                    <button class="btn" onclick="gainOk()" style="flex: 1; font-size: 12px;">OK</button>
+                </div>
+                <!-- CPS and Time Interval in same row -->
+                <div style="display: flex; gap: 5px; margin: 5px 0; align-items: center;">
+                    <label style="font-size: 12px; font-weight: bold; min-width: 60px;">CPS:</label>
+                    <div class="value-display" id="cps-value" style="flex: 1; font-size: 14px;">0</div>
+                    <label style="font-size: 12px; font-weight: bold; min-width: 80px; margin-left: 10px;">Time Interval:</label>
+                    <input type="text" class="time-interval-input" id="time-interval" placeholder="Enter value" style="flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;">
+                </div>
+                <button class="btn" onclick="setTimeInterval()" style="margin-top: 5px; width: 100%;">Set Interval</button>
+                <button class="btn btn-smart" onclick="smartGain()" style="margin-top: 5px;">Smart Calibration</button>
+            </div>
+        </div>
+        
+        <!-- Center Section (Stream + Console) -->
+        <div class="center-section">
             <div class="main-controls">
                 <button class="btn" onclick="startStream()">Start Stream</button>
                 <button class="btn btn-danger" onclick="stopStream()">Stop Stream</button>
                 <button class="btn" onclick="connectTerminals()">Connect Terminals</button>
             </div>
             <div class="status" id="status"></div>
+            <div class="stream-frame" id="stream-frame">
+                <span>No stream active</span>
+            </div>
+            <div class="toolbar-box console-box">
+                <h3>Console</h3>
+                <div class="console-text" id="console-text">Waiting for connection...\n</div>
+                <div class="console-input-row">
+                    <select class="terminal-select" id="terminal-select">
+                        <option value="Debug">Debug</option>
+                        <option value="FPGA">FPGA</option>
+                        <option value="Linux">Linux</option>
+                    </select>
+                    <input type="text" class="command-input" id="command-input" placeholder="Enter command..." onkeypress="handleCommandKeyPress(event)">
+                    <button class="btn" onclick="sendTerminalCommand()" style="padding: 5px 15px; font-size: 12px;">Send</button>
+                </div>
+            </div>
         </div>
         
-        <!-- Toolbar Section -->
-        <div class="toolbar-section">
+        <!-- Right Sidebar -->
+        <div class="sidebar">
             <!-- Zoom Station -->
             <div class="toolbar-box">
                 <h3>Zoom Station</h3>
@@ -314,108 +601,65 @@
                     <button class="btn btn-mode" id="reg-mode-shift" onclick="setRegistrationMode('shift')" style="flex: 1;">Shift</button>
                     <button class="btn btn-mode" id="reg-mode-stretch" onclick="setRegistrationMode('stretch_compress')" style="flex: 1;">Stretch/Compress</button>
                 </div>
-                <div style="display: grid; grid-template-columns: auto 1fr auto 1fr auto; gap: 5px; max-width: 200px; margin: 0 auto; align-items: center;">
-                    <div class="value-display" id="reg-shift-x" style="font-size: 12px; min-width: 40px; padding: 3px 5px; grid-column: 1; grid-row: 1;">X:0</div>
+                <div style="display: grid; grid-template-columns: auto 10px auto 10px auto 10px auto 10px auto; gap: 0; max-width: 280px; margin: 0 auto; align-items: center; justify-items: center;">
+                    <!-- Row 1: X values and Up arrow -->
+                    <div class="value-display" id="reg-shift-x" style="font-size: 14px; min-width: 55px; padding: 5px 8px; grid-column: 1; grid-row: 1;">X:0</div>
+                    <div style="grid-column: 2; grid-row: 1;"></div>
+                    <div style="grid-column: 3; grid-row: 1;"></div>
+                    <div style="grid-column: 4; grid-row: 1;"></div>
                     <button class="btn btn-arrow" 
                             onmousedown="startLongPress('reg', 'up')" 
                             onmouseup="stopLongPress('reg')"
                             onmouseleave="stopLongPress('reg')"
                             ontouchstart="startLongPress('reg', 'up')"
                             ontouchend="stopLongPress('reg')"
-                            style="grid-column: 3; grid-row: 1;">▲</button>
-                    <div class="value-display" id="reg-stretch-x" style="font-size: 12px; min-width: 40px; padding: 3px 5px; grid-column: 5; grid-row: 1;">X:0</div>
+                            style="grid-column: 5; grid-row: 1;">▲</button>
+                    <div style="grid-column: 6; grid-row: 1;"></div>
+                    <div style="grid-column: 7; grid-row: 1;"></div>
+                    <div style="grid-column: 8; grid-row: 1;"></div>
+                    <div class="value-display" id="reg-stretch-x" style="font-size: 14px; min-width: 55px; padding: 5px 8px; grid-column: 9; grid-row: 1;">X:0</div>
                     
-                    <div class="value-display" id="reg-shift-y" style="font-size: 12px; min-width: 40px; padding: 3px 5px; grid-column: 1; grid-row: 2;">Y:0</div>
+                    <!-- Row 2: Y values and Left/OK/Right arrows -->
+                    <div class="value-display" id="reg-shift-y" style="font-size: 14px; min-width: 55px; padding: 5px 8px; grid-column: 1; grid-row: 2;">Y:0</div>
+                    <div style="grid-column: 2; grid-row: 2;"></div>
                     <button class="btn btn-arrow" 
                             onmousedown="startLongPress('reg', 'left')" 
                             onmouseup="stopLongPress('reg')"
                             onmouseleave="stopLongPress('reg')"
                             ontouchstart="startLongPress('reg', 'left')"
                             ontouchend="stopLongPress('reg')"
-                            style="grid-column: 2; grid-row: 2;">◄</button>
-                    <button class="btn" onclick="regOk()" style="grid-column: 3; grid-row: 2; padding: 5px 10px; font-size: 12px;">OK</button>
+                            style="grid-column: 3; grid-row: 2;">◄</button>
+                    <div style="grid-column: 4; grid-row: 2;"></div>
+                    <button class="btn" onclick="regOk()" style="grid-column: 5; grid-row: 2; padding: 5px 10px; font-size: 12px;">OK</button>
+                    <div style="grid-column: 6; grid-row: 2;"></div>
                     <button class="btn btn-arrow" 
                             onmousedown="startLongPress('reg', 'right')" 
                             onmouseup="stopLongPress('reg')"
                             onmouseleave="stopLongPress('reg')"
                             ontouchstart="startLongPress('reg', 'right')"
                             ontouchend="stopLongPress('reg')"
-                            style="grid-column: 4; grid-row: 2;">►</button>
-                    <div class="value-display" id="reg-stretch-y" style="font-size: 12px; min-width: 40px; padding: 3px 5px; grid-column: 5; grid-row: 2;">Y:0</div>
+                            style="grid-column: 7; grid-row: 2;">►</button>
+                    <div style="grid-column: 8; grid-row: 2;"></div>
+                    <div class="value-display" id="reg-stretch-y" style="font-size: 14px; min-width: 55px; padding: 5px 8px; grid-column: 9; grid-row: 2;">Y:0</div>
                     
+                    <!-- Row 3: Down arrow -->
+                    <div style="grid-column: 1; grid-row: 3;"></div>
+                    <div style="grid-column: 2; grid-row: 3;"></div>
+                    <div style="grid-column: 3; grid-row: 3;"></div>
+                    <div style="grid-column: 4; grid-row: 3;"></div>
                     <button class="btn btn-arrow" 
                             onmousedown="startLongPress('reg', 'down')" 
                             onmouseup="stopLongPress('reg')"
                             onmouseleave="stopLongPress('reg')"
                             ontouchstart="startLongPress('reg', 'down')"
                             ontouchend="stopLongPress('reg')"
-                            style="grid-column: 3; grid-row: 3;">▼</button>
+                            style="grid-column: 5; grid-row: 3;">▼</button>
+                    <div style="grid-column: 6; grid-row: 3;"></div>
+                    <div style="grid-column: 7; grid-row: 3;"></div>
+                    <div style="grid-column: 8; grid-row: 3;"></div>
+                    <div style="grid-column: 9; grid-row: 3;"></div>
                 </div>
                 <button class="btn btn-smart" onclick="smartRegistration()">Smart Calibration</button>
-            </div>
-            
-            <!-- Focus Calibration -->
-            <div class="toolbar-box">
-                <h3>Focus Calibration</h3>
-                <div class="control-row">
-                    <button class="btn btn-arrow" 
-                            onmousedown="startLongPress('focus', -1)" 
-                            onmouseup="stopLongPress('focus')"
-                            onmouseleave="stopLongPress('focus')"
-                            ontouchstart="startLongPress('focus', -1)"
-                            ontouchend="stopLongPress('focus')">◄</button>
-                    <div class="value-display" id="focus-value">0</div>
-                    <button class="btn btn-arrow" 
-                            onmousedown="startLongPress('focus', 1)" 
-                            onmouseup="stopLongPress('focus')"
-                            onmouseleave="stopLongPress('focus')"
-                            ontouchstart="startLongPress('focus', 1)"
-                            ontouchend="stopLongPress('focus')">►</button>
-                    <button class="btn" onclick="focusOk()" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;">OK</button>
-                </div>
-                <button class="btn btn-smart" onclick="smartFocus()">Smart Calibration</button>
-            </div>
-            
-            <!-- Gain Calibration -->
-            <div class="toolbar-box">
-                <h3>Gain Calibration</h3>
-                <div class="control-row">
-                    <button class="btn btn-arrow" 
-                            onmousedown="startLongPress('gain', -1, 0, 255)" 
-                            onmouseup="stopLongPress('gain')"
-                            onmouseleave="stopLongPress('gain')"
-                            ontouchstart="startLongPress('gain', -1, 0, 255)"
-                            ontouchend="stopLongPress('gain')">◄</button>
-                    <div class="value-display" id="gain-value">0</div>
-                    <button class="btn btn-arrow" 
-                            onmousedown="startLongPress('gain', 1, 0, 255)" 
-                            onmouseup="stopLongPress('gain')"
-                            onmouseleave="stopLongPress('gain')"
-                            ontouchstart="startLongPress('gain', 1, 0, 255)"
-                            ontouchend="stopLongPress('gain')">►</button>
-                    <button class="btn" onclick="gainOk()" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;">OK</button>
-                </div>
-                <div style="display: flex; gap: 5px; margin: 5px 0;">
-                    <button class="btn btn-mode" id="gain-mode-btn" onclick="toggleGainMode()" style="flex: 1; font-size: 12px;">Min/Max</button>
-                </div>
-                <button class="btn btn-smart" onclick="smartGain()">Smart Calibration</button>
-                <div class="gain-info">
-                    <div class="gain-info-row">
-                        <label>CPS:</label>
-                        <div class="value-display" id="cps-value">0</div>
-                    </div>
-                    <div class="gain-info-row">
-                        <label>Time Interval:</label>
-                        <input type="text" class="time-interval-input" id="time-interval" placeholder="Enter value">
-                    </div>
-                    <button class="btn" onclick="setTimeInterval()" style="margin-top: 5px; width: 100%;">Set Interval</button>
-                </div>
-            </div>
-            
-            <!-- Console -->
-            <div class="toolbar-box console-box">
-                <h3>Console</h3>
-                <div class="console-text" id="console-text">Waiting for connection...\n</div>
             </div>
         </div>
     </div>
@@ -430,10 +674,10 @@
         let longPressType = null;
         let longPressDirection = null;
         let longPressCurrentValue = null;
-        let longPressOriginalValue = null; // Store original value before long press
+        let longPressOriginalValue = null;
         let longPressMin = null;
         let longPressMax = null;
-        let longPressSpeed = 50; // milliseconds between increments (faster = lower number)
+        let longPressSpeed = 50;
         
         function showStatus(message, type = 'info') {
             const status = document.getElementById('status');
@@ -448,7 +692,6 @@
         
         function logToConsole(message) {
             // This function is kept for local messages, but console is now updated from server
-            // Local messages can still be added if needed
         }
         
         async function updateConsole() {
@@ -561,7 +804,7 @@
                 } catch (error) {
                     console.error('Error fetching frame:', error);
                 }
-            }, 100); // Update every 100ms
+            }, 100);
         }
         
         function stopFrameUpdates() {
@@ -572,12 +815,65 @@
         }
         
         // ============================================
+        // CAMERA INFO FUNCTIONS
+        // ============================================
+        async function setCameraSerial() {
+            const serial = document.getElementById('camera-serial').value;
+            try {
+                const response = await fetch('/set_camera_serial', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ camera_serial: serial })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showStatus(result.message || 'Camera serial number saved', 'success');
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function setTechnicianName() {
+            const name = document.getElementById('technician-name').value;
+            try {
+                const response = await fetch('/set_technician_name', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ technician_name: name })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showStatus(result.message || 'Technician name saved', 'success');
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // ============================================
         // LONG-PRESS FUNCTIONALITY
         // ============================================
         function startLongPress(type, direction, min, max) {
-            // Prevent context menu on long press
             if (event) {
                 event.preventDefault();
+            }
+            
+            // Check if focus buttons are disabled (auto focus enabled)
+            if (type === 'focus') {
+                const decreaseBtn = document.getElementById('focus-decrease-btn');
+                const increaseBtn = document.getElementById('focus-increase-btn');
+                if (decreaseBtn.disabled || increaseBtn.disabled) {
+                    return; // Don't allow long press when auto focus is enabled
+                }
             }
             
             longPressType = type;
@@ -585,7 +881,6 @@
             longPressMin = min;
             longPressMax = max;
             
-            // Get current value from UI
             let valueElement;
             if (type === 'zoom') {
                 valueElement = document.getElementById('zoom-value');
@@ -595,14 +890,12 @@
                 valueElement = document.getElementById('focus-value');
             } else if (type === 'reg') {
                 // For registration, we need to get the current mode and update the right value
-                // This will be handled in the interval
             }
             
             if (valueElement) {
                 longPressCurrentValue = parseInt(valueElement.textContent) || 0;
-                longPressOriginalValue = longPressCurrentValue; // Store original value
+                longPressOriginalValue = longPressCurrentValue;
             } else if (type === 'reg') {
-                // Get registration values based on current mode
                 const regMode = document.getElementById('reg-mode-shift').style.background === 'rgb(0, 123, 255)' ? 'shift' : 'stretch';
                 if (direction === 'up' || direction === 'down') {
                     const yElement = regMode === 'shift' ? document.getElementById('reg-shift-y') : document.getElementById('reg-stretch-y');
@@ -611,10 +904,9 @@
                     const xElement = regMode === 'shift' ? document.getElementById('reg-shift-x') : document.getElementById('reg-stretch-x');
                     longPressCurrentValue = parseInt(xElement.textContent.split(':')[1]) || 0;
                 }
-                longPressOriginalValue = longPressCurrentValue; // Store original value
+                longPressOriginalValue = longPressCurrentValue;
             }
             
-            // Start rapid updates
             longPressInterval = setInterval(() => {
                 if (type === 'reg') {
                     updateRegistrationLongPress();
@@ -627,10 +919,8 @@
         function updateValueLongPress() {
             if (longPressCurrentValue === null) return;
             
-            // Calculate new value
             let newValue = longPressCurrentValue + longPressDirection;
             
-            // Apply limits based on type
             if (longPressType === 'zoom') {
                 if (newValue < 0) newValue = 0;
                 if (newValue > 26) newValue = 26;
@@ -639,19 +929,14 @@
                 if (newValue > 255) newValue = 255;
             } else if (longPressType === 'focus') {
                 if (newValue < 0) newValue = 0;
-                // For focus, we don't know motor_max in frontend, so we'll let backend validate
-                // Just prevent negative values here
             } else {
-                // Use provided min/max if available
                 if (longPressMin !== null && newValue < longPressMin) newValue = longPressMin;
                 if (longPressMax !== null && newValue > longPressMax) newValue = longPressMax;
             }
             
-            // Update if changed
             if (newValue !== longPressCurrentValue) {
                 longPressCurrentValue = newValue;
                 
-                // Update UI immediately
                 let valueElement;
                 if (longPressType === 'zoom') {
                     valueElement = document.getElementById('zoom-value');
@@ -685,7 +970,6 @@
             
             longPressCurrentValue = newValue;
             
-            // Update UI immediately
             if (longPressDirection === 'up' || longPressDirection === 'down') {
                 const yElement = regMode === 'shift' ? document.getElementById('reg-shift-y') : document.getElementById('reg-stretch-y');
                 yElement.textContent = `Y:${newValue}`;
@@ -696,18 +980,15 @@
         }
         
         async function stopLongPress(type) {
-            // Prevent context menu if event exists
             if (event) {
                 event.preventDefault();
             }
             
-            // Stop the interval
             if (longPressInterval) {
                 clearInterval(longPressInterval);
                 longPressInterval = null;
             }
             
-            // Read the CURRENT value from UI (the final value displayed)
             let finalValue = null;
             if (type === 'zoom') {
                 finalValue = parseInt(document.getElementById('zoom-value').textContent) || 0;
@@ -719,7 +1000,6 @@
                 finalValue = parseInt(document.getElementById('focus-value').textContent) || 0;
                 await sendFocusValue(finalValue);
             } else if (type === 'reg') {
-                // For registration, get the value based on direction and mode
                 const regMode = document.getElementById('reg-mode-shift').style.background === 'rgb(0, 123, 255)' ? 'shift' : 'stretch';
                 if (longPressDirection === 'up' || longPressDirection === 'down') {
                     const yElement = regMode === 'shift' ? document.getElementById('reg-shift-y') : document.getElementById('reg-stretch-y');
@@ -731,7 +1011,6 @@
                 await sendRegistrationValue(longPressDirection, finalValue);
             }
             
-            // Reset state
             longPressType = null;
             longPressDirection = null;
             longPressCurrentValue = null;
@@ -742,10 +1021,6 @@
         
         async function sendZoomValue(targetValue) {
             try {
-                // Read current value from UI (the final value after long press)
-                const currentValue = parseInt(document.getElementById('zoom-value').textContent) || 0;
-                
-                // Send ONE command with the absolute target value
                 const response = await fetch('/set_zoom', {
                     method: 'POST',
                     headers: {
@@ -766,10 +1041,6 @@
         
         async function sendGainValue(targetValue) {
             try {
-                // Read current value from UI (the final value after long press)
-                const currentValue = parseInt(document.getElementById('gain-value').textContent) || 0;
-                
-                // Send ONE command with the absolute target value
                 const response = await fetch('/set_gain', {
                     method: 'POST',
                     headers: {
@@ -790,10 +1061,6 @@
         
         async function sendFocusValue(targetValue) {
             try {
-                // Read current value from UI (the final value after long press)
-                const currentValue = parseInt(document.getElementById('focus-value').textContent) || 0;
-                
-                // Send ONE command with the absolute target value
                 const response = await fetch('/set_focus', {
                     method: 'POST',
                     headers: {
@@ -814,7 +1081,6 @@
         
         async function sendRegistrationValue(direction, targetValue) {
             try {
-                // Send ONE command with the absolute target value
                 const response = await fetch('/set_registration', {
                     method: 'POST',
                     headers: {
@@ -837,68 +1103,8 @@
         }
         
         // ============================================
-        // ZOOM FUNCTIONS (kept for single clicks if needed)
-        // ============================================
-        async function zoomIncrease() {
-            await sendZoomValue(parseInt(document.getElementById('zoom-value').textContent) + 1);
-        }
-        
-        async function zoomDecrease() {
-            await sendZoomValue(parseInt(document.getElementById('zoom-value').textContent) - 1);
-        }
-        
-        async function zoomOk() {
-            try {
-                const response = await fetch('/zoom_ok', { method: 'POST' });
-                const result = await response.json();
-                if (result.success) {
-                    logToConsole(result.message);
-                    showStatus(result.message, 'success');
-                }
-            } catch (error) {
-                logToConsole(`Zoom OK error: ${error.message}`);
-            }
-        }
-        
-        // ============================================
         // REGISTRATION FUNCTIONS
         // ============================================
-        async function regUp() {
-            const response = await fetch('/reg_up', { method: 'POST' });
-            const result = await response.json();
-            if (result.success) {
-                updateRegistrationValues(result);
-                logToConsole('Registration: Up');
-            }
-        }
-        
-        async function regDown() {
-            const response = await fetch('/reg_down', { method: 'POST' });
-            const result = await response.json();
-            if (result.success) {
-                updateRegistrationValues(result);
-                logToConsole('Registration: Down');
-            }
-        }
-        
-        async function regLeft() {
-            const response = await fetch('/reg_left', { method: 'POST' });
-            const result = await response.json();
-            if (result.success) {
-                updateRegistrationValues(result);
-                logToConsole('Registration: Left');
-            }
-        }
-        
-        async function regRight() {
-            const response = await fetch('/reg_right', { method: 'POST' });
-            const result = await response.json();
-            if (result.success) {
-                updateRegistrationValues(result);
-                logToConsole('Registration: Right');
-            }
-        }
-        
         function updateRegistrationValues(result) {
             if (result.offset_x !== undefined) {
                 document.getElementById('reg-shift-x').textContent = `X:${result.offset_x}`;
@@ -931,7 +1137,6 @@
                 });
                 const result = await response.json();
                 if (result.success) {
-                    // Update button states
                     if (mode === 'shift') {
                         document.getElementById('reg-mode-shift').style.background = '#007bff';
                         document.getElementById('reg-mode-stretch').style.background = '#6c757d';
@@ -955,32 +1160,6 @@
         // ============================================
         // FOCUS FUNCTIONS
         // ============================================
-        async function focusIncrease() {
-            try {
-                const response = await fetch('/focus_increase', { method: 'POST' });
-                const result = await response.json();
-                if (result.success) {
-                    document.getElementById('focus-value').textContent = result.focus_value;
-                    logToConsole(`Focus increased to ${result.focus_value}`);
-                }
-            } catch (error) {
-                logToConsole(`Focus error: ${error.message}`);
-            }
-        }
-        
-        async function focusDecrease() {
-            try {
-                const response = await fetch('/focus_decrease', { method: 'POST' });
-                const result = await response.json();
-                if (result.success) {
-                    document.getElementById('focus-value').textContent = result.focus_value;
-                    logToConsole(`Focus decreased to ${result.focus_value}`);
-                }
-            } catch (error) {
-                logToConsole(`Focus error: ${error.message}`);
-            }
-        }
-        
         async function focusOk() {
             try {
                 const response = await fetch('/focus_ok', { method: 'POST' });
@@ -994,6 +1173,65 @@
             }
         }
         
+        async function toggleAutoFocus() {
+            try {
+                const autoFocusBtn = document.getElementById('auto-focus-btn');
+                const currentState = autoFocusBtn.classList.contains('active');
+                const newState = !currentState;
+                
+                const response = await fetch('/toggle_auto_focus', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ enable: newState })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update button state
+                    if (result.auto_focus_enabled) {
+                        autoFocusBtn.classList.add('active');
+                        document.getElementById('auto-focus-status').textContent = 'ON';
+                        // Disable focus adjustment buttons
+                        document.getElementById('focus-decrease-btn').disabled = true;
+                        document.getElementById('focus-increase-btn').disabled = true;
+                    } else {
+                        autoFocusBtn.classList.remove('active');
+                        document.getElementById('auto-focus-status').textContent = 'OFF';
+                        // Enable focus adjustment buttons
+                        document.getElementById('focus-decrease-btn').disabled = false;
+                        document.getElementById('focus-increase-btn').disabled = false;
+                    }
+                    showStatus(result.message, 'success');
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function updateFocusButtonsState(autoFocusEnabled) {
+            const decreaseBtn = document.getElementById('focus-decrease-btn');
+            const increaseBtn = document.getElementById('focus-increase-btn');
+            const autoFocusBtn = document.getElementById('auto-focus-btn');
+            const autoFocusStatus = document.getElementById('auto-focus-status');
+            
+            if (autoFocusEnabled) {
+                decreaseBtn.disabled = true;
+                increaseBtn.disabled = true;
+                autoFocusBtn.classList.add('active');
+                autoFocusStatus.textContent = 'ON';
+            } else {
+                decreaseBtn.disabled = false;
+                increaseBtn.disabled = false;
+                autoFocusBtn.classList.remove('active');
+                autoFocusStatus.textContent = 'OFF';
+            }
+        }
+        
         async function smartFocus() {
             const response = await fetch('/smart_focus', { method: 'POST' });
             const result = await response.json();
@@ -1003,32 +1241,6 @@
         // ============================================
         // GAIN FUNCTIONS
         // ============================================
-        async function gainIncrease() {
-            try {
-                const response = await fetch('/gain_increase', { method: 'POST' });
-                const result = await response.json();
-                if (result.success) {
-                    document.getElementById('gain-value').textContent = result.gain_value;
-                    logToConsole(`Gain increased to ${result.gain_value}`);
-                }
-            } catch (error) {
-                logToConsole(`Gain error: ${error.message}`);
-            }
-        }
-        
-        async function gainDecrease() {
-            try {
-                const response = await fetch('/gain_decrease', { method: 'POST' });
-                const result = await response.json();
-                if (result.success) {
-                    document.getElementById('gain-value').textContent = result.gain_value;
-                    logToConsole(`Gain decreased to ${result.gain_value}`);
-                }
-            } catch (error) {
-                logToConsole(`Gain error: ${error.message}`);
-            }
-        }
-        
         async function gainOk() {
             try {
                 const response = await fetch('/gain_ok', { method: 'POST' });
@@ -1042,16 +1254,84 @@
             }
         }
         
-        async function toggleGainMode() {
+        async function setGainMin() {
             try {
-                const response = await fetch('/toggle_gain_mode', { method: 'POST' });
+                const response = await fetch('/set_gain_min', { method: 'POST' });
                 const result = await response.json();
                 if (result.success) {
-                    document.getElementById('gain-mode-btn').textContent = result.mode === 'min' ? 'Min' : 'Max';
-                    logToConsole(`Gain mode: ${result.mode}`);
+                    showStatus(result.message, 'success');
+                    logToConsole(result.message);
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                    logToConsole(`Error: ${result.error}`);
                 }
             } catch (error) {
-                logToConsole(`Error toggling gain mode: ${error.message}`);
+                showStatus(`Error: ${error.message}`, 'error');
+                logToConsole(`Error setting gain min: ${error.message}`);
+            }
+        }
+        
+        async function setGainMedium() {
+            try {
+                const response = await fetch('/set_gain_medium', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    showStatus(result.message, 'success');
+                    logToConsole(result.message);
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                    logToConsole(`Error: ${result.error}`);
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                logToConsole(`Error setting gain medium: ${error.message}`);
+            }
+        }
+        
+        async function setGainMax() {
+            try {
+                const response = await fetch('/set_gain_max', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    showStatus(result.message, 'success');
+                    logToConsole(result.message);
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                    logToConsole(`Error: ${result.error}`);
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                logToConsole(`Error setting gain max: ${error.message}`);
+            }
+        }
+        
+        async function clearGainValues() {
+            try {
+                const response = await fetch('/clear_gain_values', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    showStatus(result.message, 'success');
+                    logToConsole(result.message);
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                    logToConsole(`Error: ${result.error}`);
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                logToConsole(`Error clearing gain values: ${error.message}`);
+            }
+        }
+        
+        async function startGainCounting() {
+            try {
+                const response = await fetch('/start_gain_counting', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    showStatus(result.message, 'success');
+                    logToConsole(result.message);
+                }
+            } catch (error) {
+                logToConsole(`Error starting gain counting: ${error.message}`);
             }
         }
         
@@ -1080,22 +1360,96 @@
             }
         }
         
+        // ============================================
+        // TERMINAL COMMAND FUNCTIONS
+        // ============================================
+        function handleCommandKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendTerminalCommand();
+            }
+        }
+        
+        async function sendTerminalCommand() {
+            const terminalSelect = document.getElementById('terminal-select');
+            const commandInput = document.getElementById('command-input');
+            const terminal = terminalSelect.value;
+            const command = commandInput.value.trim();
+            
+            if (!command) {
+                showStatus('Please enter a command', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/send_terminal_command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        terminal: terminal,
+                        command: command
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Clear input field
+                    commandInput.value = '';
+                    // Response will appear in console via background listener
+                } else {
+                    showStatus(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+        
         // Update values on page load
         async function updateValues() {
             try {
-                const [zoom, focus, gain, cps, regMode, gainMode] = await Promise.all([
+                const [zoom, focus, gain, cps, regMode, motorMax, cameraSerial, technicianName] = await Promise.all([
                     fetch('/get_zoom').then(r => r.json()),
                     fetch('/get_focus').then(r => r.json()),
                     fetch('/get_gain').then(r => r.json()),
                     fetch('/get_cps').then(r => r.json()),
                     fetch('/get_registration_mode').then(r => r.json()),
-                    fetch('/get_gain_mode').then(r => r.json())
+                    fetch('/get_motor_max').then(r => r.json()),
+                    fetch('/get_camera_serial').then(r => r.json()),
+                    fetch('/get_technician_name').then(r => r.json())
                 ]);
                 
                 document.getElementById('zoom-value').textContent = zoom.zoom_value;
                 document.getElementById('focus-value').textContent = focus.focus_value;
                 document.getElementById('gain-value').textContent = gain.gain_value;
+                document.getElementById('gain-min-value').textContent = gain.gain_min_value || 0;
+                document.getElementById('gain-medium-value').textContent = gain.gain_medium_value || 0;
+                document.getElementById('gain-max-value').textContent = gain.gain_max_value || 0;
                 document.getElementById('cps-value').textContent = cps.cps_value;
+                document.getElementById('motor-max-value').textContent = motorMax.motor_max || 0;
+                
+                // Only update input fields if they are not focused (user is not typing)
+                const cameraSerialInput = document.getElementById('camera-serial');
+                if (document.activeElement !== cameraSerialInput) {
+                    cameraSerialInput.value = cameraSerial.camera_serial || '';
+                }
+                
+                const technicianNameInput = document.getElementById('technician-name');
+                if (document.activeElement !== technicianNameInput) {
+                    technicianNameInput.value = technicianName.technician_name || '';
+                }
+                
+                // Update VIS and UV positions
+                document.getElementById('vis-position-value').textContent = focus.vis_position || 0;
+                document.getElementById('uv-position-value').textContent = focus.uv_position || 0;
+                
+                // Update Zoom Status and Distance
+                document.getElementById('zoom-status-value').textContent = focus.zoom_status || '-';
+                document.getElementById('distance-value').textContent = focus.distance || 0;
+                
+                // Update auto focus button state and focus buttons
+                updateFocusButtonsState(focus.auto_focus_enabled || false);
                 
                 // Update registration values
                 document.getElementById('reg-shift-x').textContent = `X:${regMode.offset_x || 0}`;
@@ -1111,9 +1465,6 @@
                     document.getElementById('reg-mode-shift').style.background = '#6c757d';
                     document.getElementById('reg-mode-stretch').style.background = '#007bff';
                 }
-                
-                // Update gain mode button
-                document.getElementById('gain-mode-btn').textContent = gainMode.mode === 'min' ? 'Min' : 'Max';
             } catch (error) {
                 console.error('Error updating values:', error);
             }
@@ -1128,9 +1479,8 @@
         // Update values periodically
         updateInterval = setInterval(updateValues, 2000);
         
-        // Update console periodically (every 500ms for real-time updates)
+        // Update console periodically
         consoleInterval = setInterval(updateConsole, 500);
     </script>
 </body>
 </html>
-

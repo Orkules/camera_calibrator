@@ -32,15 +32,26 @@ config = None
 zoom_value = 0  # Changed from 1 to 0 (range is 0-26)
 focus_value = 0
 gain_value = 0
+gain_min_value = 0  # Minimum gain value
+gain_medium_value = 0  # Medium gain value
+gain_max_value = 0  # Maximum gain value
 registration_mode = "shift"  # "shift" or "stretch_compress"
 reg_offset_x = 0
 reg_offset_y = 0
 reg_stretch_x = 0
 reg_stretch_y = 0
-gain_mode = "min"  # "min" or "max"
+gain_mode = "min"  # "min" or "max" (kept for backward compatibility)
 cps_value = 0
 time_interval_value = ""
 motor_max = None  # Motor maximum position value
+camera_serial = ""  # Camera serial number
+technician_name = ""  # Technician name
+auto_focus_enabled = False  # Auto focus mode state
+vis_position = 0  # VIS position value (for future use)
+uv_position = 0  # UV position value (for future use)
+zoom_status = ""  # Zoom status value (for future use)
+distance = 0  # Distance value (for future use)
+uv_vis_focus_info = {}  # Dictionary with uv_motor_pos, vis_focus_point, zoom_status, distance
 
 # Interval update thread
 update_thread = None
@@ -83,12 +94,37 @@ def add_console_message(message: str):
     logging.debug(f"Console: {message}")
 
 
+def load_calibration_file_header():
+    """Load camera_serial and technician_name from calibration file."""
+    global camera_serial, technician_name
+    
+    calibration_file = Path(__file__).parent / 'calibration_files' / 'calibrated_file.yaml'
+    
+    if calibration_file.exists():
+        try:
+            with open(calibration_file, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
+            
+            if 'camera_serial' in data:
+                camera_serial = data['camera_serial']
+                logging.info(f"Loaded camera_serial from file: {camera_serial}")
+            
+            if 'technician_name' in data:
+                technician_name = data['technician_name']
+                logging.info(f"Loaded technician_name from file: {technician_name}")
+        except Exception as e:
+            logging.warning(f"Error loading calibration file header: {e}")
+
+
 def init_components():
     """Initialize terminal manager and stream processor."""
     global stream_processor, terminal_manager, config
     
     if config is None:
         config = load_config()
+    
+    # Load calibration file header (camera_serial, technician_name)
+    load_calibration_file_header()
     
     # Pass log callback to terminal manager
     terminal_manager = TerminalManager(config, log_callback=add_console_message)
@@ -101,7 +137,8 @@ def init_components():
 def register_terminal_callbacks():
     """Register callbacks for automatic parsing of terminal responses based on config."""
     global terminal_manager, config, zoom_value, gain_value, focus_value, motor_max
-    global reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y
+    global reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y, uv_vis_focus_info
+    global gain_min_value, gain_medium_value, gain_max_value
     
     if terminal_manager is None or config is None:
         return
@@ -123,6 +160,9 @@ def register_terminal_callbacks():
         'get_uv_offset_y_value': ('reg_offset_y', None),
         'get_uv_magnify_x_value': ('reg_stretch_x', None),
         'get_uv_magnify_y_value': ('reg_stretch_y', None),
+        'set_min_gain_command': ('gain_min_value', None),
+        'set_medium_gain_command': ('gain_medium_value', None),
+        'set_max_gain_command': ('gain_max_value', None),
     }
     
     # Special case for motor_max (from operations)
@@ -175,6 +215,36 @@ def register_terminal_callbacks():
     else:
         logging.warning("motor_max_pattern not found in config operations!")
     
+    # Handle auto_responses with special handlers
+    handler_functions = {
+        'parse_uv_vis_focus_info': parse_uv_vis_focus_info,
+    }
+    
+    if 'auto_responses' in config:
+        for auto_name, auto_config in config['auto_responses'].items():
+            if isinstance(auto_config, dict):
+                response_pattern = auto_config.get('response')
+                handler_name = auto_config.get('handler')
+                
+                if response_pattern and handler_name:
+                    if handler_name in handler_functions:
+                        handler_func = handler_functions[handler_name]
+                        
+                        # Create callback that calls the special handler
+                        # Simple check: if message starts with "set m", send to handler
+                        pattern_prefix = "set m"  # Simple prefix for terminal_manager to match
+                        
+                        def callback(terminal_name: str, response: str):
+                            # Simple check: if message starts with "set m", send to handler
+                            if response.strip().startswith("set m"):
+                                handler_func(response)
+                        
+                        # Register with simple prefix pattern so terminal_manager can match it
+                        terminal_manager.register_response_callback(pattern_prefix, callback)
+                        logging.info(f"Registered auto_response '{auto_name}' with pattern '{response_pattern}' -> handler '{handler_name}'")
+                    else:
+                        logging.warning(f"Handler function '{handler_name}' not found for auto_response '{auto_name}'")
+    
     # Create and register callbacks for each response pattern
     for response_pattern, global_vars in response_to_globals.items():
         def make_callback(pattern, vars_list):
@@ -215,6 +285,15 @@ def register_terminal_callbacks():
                             elif global_var_name == 'reg_stretch_y':
                                 globals()['reg_stretch_y'] = parsed
                                 logging.info(f"Auto-updated UV magnify Y: {parsed} from {response}")
+                            elif global_var_name == 'gain_min_value':
+                                globals()['gain_min_value'] = parsed
+                                logging.info(f"Auto-updated gain min value: {parsed} from {response}")
+                            elif global_var_name == 'gain_medium_value':
+                                globals()['gain_medium_value'] = parsed
+                                logging.info(f"Auto-updated gain medium value: {parsed} from {response}")
+                            elif global_var_name == 'gain_max_value':
+                                globals()['gain_max_value'] = parsed
+                                logging.info(f"Auto-updated gain max value: {parsed} from {response}")
             return callback
         
         callback_func = make_callback(response_pattern, global_vars)
@@ -288,6 +367,42 @@ def parse_response_value(response: str, response_pattern: str) -> int:
             return None
     
     return None
+
+
+def parse_uv_vis_focus_info(response: str):
+    """
+    Parse the special "set m<val1> <val2> narrow/wide <val3>" message.
+    Updates the global uv_vis_focus_info dictionary.
+    
+    Args:
+        response: The full response string, e.g., "set m10 20 narrow 30" or "set m10 20 wide 30"
+    """
+    global uv_vis_focus_info
+    
+    # Pattern: "set m<val1> <val2> narrow/wide <val3>"
+    # Example: "set m10 20 narrow 30" or "set m10 20 wide 30"
+    pattern = r'set m(-?\d+)\s+(-?\d+)\s+(narrow|wide)\s+(-?\d+)'
+    
+    match = re.search(pattern, response)
+    if match:
+        try:
+            val1 = int(match.group(1))  # uv_motor_pos
+            val2 = int(match.group(2))  # vis_focus_point
+            zoom_status = match.group(3)  # "narrow" or "wide"
+            val3 = int(match.group(4))  # distance
+            
+            uv_vis_focus_info = {
+                'uv_motor_pos': val1,
+                'vis_focus_point': val2,
+                'zoom_status': zoom_status,
+                'distance': val3
+            }
+            
+            logging.info(f"Updated uv_vis_focus_info: {uv_vis_focus_info} from response: {response}")
+        except (ValueError, IndexError) as e:
+            logging.error(f"Error parsing uv_vis_focus_info from response '{response}': {e}")
+    else:
+        logging.warning(f"Failed to match pattern in response: {response}")
 
 
 def execute_command_from_config(command_name: str, value: int = None):
@@ -582,6 +697,7 @@ def save_calibration_to_file(calibration_type: str, values: dict):
         calibration_type: Type of calibration ('zoom', 'focus', 'gain', 'registration')
         values: Dictionary with calibration values including zoom_value
     """
+    from collections import OrderedDict
     global motor_max, zoom_value
     
     calibration_file = Path(__file__).parent / 'calibration_files' / 'calibrated_file.yaml'
@@ -623,18 +739,80 @@ def save_calibration_to_file(calibration_type: str, values: dict):
         # Add new entry if not found
         data['calibrations'].append(entry)
     
+    # Create ordered dict with header fields first
+    ordered_data = OrderedDict()
+    if 'camera_serial' in data:
+        ordered_data['camera_serial'] = data['camera_serial']
+    if 'technician_name' in data:
+        ordered_data['technician_name'] = data['technician_name']
+    ordered_data['motor_max'] = data.get('motor_max', 0)
+    ordered_data['calibrations'] = data.get('calibrations', [])
+    
     # Save to file
     try:
         # Ensure directory exists
         calibration_file.parent.mkdir(parents=True, exist_ok=True)
         
         with open(calibration_file, 'w', encoding='utf-8') as f:
-            yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            yaml.dump(dict(ordered_data), f, default_flow_style=False, allow_unicode=True, sort_keys=False)
         
         logging.info(f"Calibration saved: {calibration_type} at zoom {zoom_value}")
         return True
     except Exception as e:
         logging.error(f"Error saving calibration file: {e}", exc_info=True)
+        return False
+
+
+def update_calibration_file_header(camera_serial: str = None, technician_name: str = None):
+    """Update header fields in calibration file (camera_serial, technician_name)."""
+    from collections import OrderedDict
+    
+    calibration_file = Path(__file__).parent / 'calibration_files' / 'calibrated_file.yaml'
+    
+    # Load existing data or create new structure
+    if calibration_file.exists():
+        try:
+            with open(calibration_file, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
+        except Exception as e:
+            logging.warning(f"Error loading calibration file: {e}, creating new file")
+            data = {}
+    else:
+        data = {}
+    
+    # Initialize structure if needed
+    if 'motor_max' not in data:
+        data['motor_max'] = 0
+    
+    if 'calibrations' not in data:
+        data['calibrations'] = []
+    
+    # Update fields if provided
+    if camera_serial is not None:
+        data['camera_serial'] = camera_serial
+        logging.info(f"Updated camera_serial in calibration file: {camera_serial}")
+    
+    if technician_name is not None:
+        data['technician_name'] = technician_name
+        logging.info(f"Updated technician_name in calibration file: {technician_name}")
+    
+    # Create ordered dict with header fields first
+    ordered_data = OrderedDict()
+    if 'camera_serial' in data:
+        ordered_data['camera_serial'] = data['camera_serial']
+    if 'technician_name' in data:
+        ordered_data['technician_name'] = data['technician_name']
+    ordered_data['motor_max'] = data.get('motor_max', 0)
+    ordered_data['calibrations'] = data.get('calibrations', [])
+    
+    # Save to file
+    try:
+        calibration_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(calibration_file, 'w', encoding='utf-8') as f:
+            yaml.dump(dict(ordered_data), f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        return True
+    except Exception as e:
+        logging.error(f"Error updating calibration file header: {e}", exc_info=True)
         return False
 
 
@@ -1150,7 +1328,10 @@ def get_registration_mode():
 @app.route('/focus_increase', methods=['POST'])
 def focus_increase():
     """Increase focus value"""
-    global focus_value, motor_max
+    global focus_value, motor_max, auto_focus_enabled
+    
+    if auto_focus_enabled:
+        return jsonify({'success': False, 'error': 'Auto focus is enabled. Disable auto focus to adjust manually.'})
     
     if motor_max is None or motor_max == 0:
         return jsonify({'success': False, 'error': 'Motor max not initialized'})
@@ -1173,7 +1354,10 @@ def focus_increase():
 @app.route('/focus_decrease', methods=['POST'])
 def focus_decrease():
     """Decrease focus value"""
-    global focus_value
+    global focus_value, auto_focus_enabled
+    
+    if auto_focus_enabled:
+        return jsonify({'success': False, 'error': 'Auto focus is enabled. Disable auto focus to adjust manually.'})
     
     if focus_value <= 0:
         return jsonify({'success': False, 'error': 'Focus at minimum'})
@@ -1193,7 +1377,10 @@ def focus_decrease():
 @app.route('/set_focus', methods=['POST'])
 def set_focus():
     """Set focus to absolute value"""
-    global focus_value, motor_max
+    global focus_value, motor_max, auto_focus_enabled
+    
+    if auto_focus_enabled:
+        return jsonify({'success': False, 'error': 'Auto focus is enabled. Disable auto focus to adjust manually.'})
     
     data = request.get_json()
     target_value = data.get('value')
@@ -1219,15 +1406,19 @@ def set_focus():
 
 @app.route('/focus_ok', methods=['POST'])
 def focus_ok():
-    """Save focus value to calibration file"""
-    global focus_value
+    """Save focus value and related info to calibration file"""
+    global focus_value, uv_vis_focus_info
     
     values = {
-        'focus_value': focus_value
+        'focus_value': focus_value,
+        'vis_position': uv_vis_focus_info.get('vis_focus_point', -1),
+        'uv_position': uv_vis_focus_info.get('uv_motor_pos', -1),
+        'zoom_status': uv_vis_focus_info.get('zoom_status', ''),
+        'distance': uv_vis_focus_info.get('distance', -1)
     }
     
     if save_calibration_to_file('focus', values):
-        return jsonify({'success': True, 'message': f'Focus value {focus_value} saved to calibration file'})
+        return jsonify({'success': True, 'message': f'Focus calibration saved: focus={focus_value}, vis={values["vis_position"]}, uv={values["uv_position"]}, zoom={values["zoom_status"]}, distance={values["distance"]}'})
     else:
         return jsonify({'success': False, 'error': 'Failed to save focus value to calibration file'})
 
@@ -1242,8 +1433,50 @@ def smart_focus():
 @app.route('/get_focus', methods=['GET'])
 def get_focus():
     """Get current focus value"""
-    global focus_value
-    return jsonify({'focus_value': focus_value})
+    global focus_value, auto_focus_enabled, uv_vis_focus_info
+    return jsonify({
+        'focus_value': focus_value,
+        'auto_focus_enabled': auto_focus_enabled,
+        'vis_position': uv_vis_focus_info.get('vis_focus_point', -1),
+        'uv_position': uv_vis_focus_info.get('uv_motor_pos', -1),
+        'zoom_status': uv_vis_focus_info.get('zoom_status', ''),
+        'distance': uv_vis_focus_info.get('distance', -1)
+    })
+
+
+@app.route('/toggle_auto_focus', methods=['POST'])
+def toggle_auto_focus():
+    """Toggle auto focus mode"""
+    global auto_focus_enabled, terminal_manager, config
+    
+    data = request.get_json()
+    enable = data.get('enable')
+    
+    if enable is None:
+        # Toggle current state
+        auto_focus_enabled = not auto_focus_enabled
+    else:
+        auto_focus_enabled = bool(enable)
+    
+    # Send appropriate command based on state
+    if auto_focus_enabled:
+        # Enable auto focus
+        success, response, parsed_value = execute_command_from_config('auto_focus_command')
+        if success:
+            add_console_message("Auto focus enabled")
+            return jsonify({'success': True, 'auto_focus_enabled': True, 'message': 'Auto focus enabled'})
+        else:
+            auto_focus_enabled = False  # Revert on failure
+            return jsonify({'success': False, 'error': 'Failed to enable auto focus'})
+    else:
+        # Disable auto focus (enable manual)
+        success, response, parsed_value = execute_command_from_config('manual_focus_command')
+        if success:
+            add_console_message("Auto focus disabled (manual mode)")
+            return jsonify({'success': True, 'auto_focus_enabled': False, 'message': 'Auto focus disabled'})
+        else:
+            auto_focus_enabled = True  # Revert on failure
+            return jsonify({'success': False, 'error': 'Failed to disable auto focus'})
 
 
 # ============================================
@@ -1315,18 +1548,19 @@ def set_gain():
 
 @app.route('/gain_ok', methods=['POST'])
 def gain_ok():
-    """Save gain value to calibration file"""
-    global gain_value, gain_mode
+    """Save gain min/medium/max values to calibration file"""
+    global gain_min_value, gain_medium_value, gain_max_value
     
     values = {
-        'gain_value': gain_value,
-        'gain_mode': gain_mode
+        'gain_min_value': gain_min_value,
+        'gain_medium_value': gain_medium_value,
+        'gain_max_value': gain_max_value
     }
     
     if save_calibration_to_file('gain', values):
-        return jsonify({'success': True, 'message': f'Gain value {gain_value} saved to calibration file'})
+        return jsonify({'success': True, 'message': f'Gain calibration saved: min={gain_min_value}, medium={gain_medium_value}, max={gain_max_value}'})
     else:
-        return jsonify({'success': False, 'error': 'Failed to save gain value to calibration file'})
+        return jsonify({'success': False, 'error': 'Failed to save gain values to calibration file'})
 
 
 @app.route('/toggle_gain_mode', methods=['POST'])
@@ -1358,9 +1592,66 @@ def smart_gain():
 
 @app.route('/get_gain', methods=['GET'])
 def get_gain():
-    """Get current gain value"""
-    global gain_value
-    return jsonify({'gain_value': gain_value})
+    """Get current gain value and min/medium/max values"""
+    global gain_value, gain_min_value, gain_medium_value, gain_max_value
+    return jsonify({
+        'gain_value': gain_value,
+        'gain_min_value': gain_min_value,
+        'gain_medium_value': gain_medium_value,
+        'gain_max_value': gain_max_value
+    })
+
+
+@app.route('/set_gain_min', methods=['POST'])
+def set_gain_min():
+    """Send set min gain command to terminal"""
+    success, response, parsed_value = execute_command_from_config('set_min_gain_command')
+    
+    if success:
+        return jsonify({'success': True, 'message': 'Set min gain command sent'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to send set min gain command'})
+
+
+@app.route('/set_gain_medium', methods=['POST'])
+def set_gain_medium():
+    """Send set medium gain command to terminal"""
+    success, response, parsed_value = execute_command_from_config('set_medium_gain_command')
+    
+    if success:
+        return jsonify({'success': True, 'message': 'Set medium gain command sent'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to send set medium gain command'})
+
+
+@app.route('/set_gain_max', methods=['POST'])
+def set_gain_max():
+    """Send set max gain command to terminal"""
+    success, response, parsed_value = execute_command_from_config('set_max_gain_command')
+    
+    if success:
+        return jsonify({'success': True, 'message': 'Set max gain command sent'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to send set max gain command'})
+
+
+@app.route('/clear_gain_values', methods=['POST'])
+def clear_gain_values():
+    """Send clear gain values command to terminal"""
+    success, response, parsed_value = execute_command_from_config('clear_gain_value_command')
+    
+    if success:
+        return jsonify({'success': True, 'message': 'Clear gain values command sent'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to send clear gain values command'})
+
+
+@app.route('/start_gain_counting', methods=['POST'])
+def start_gain_counting():
+    """Start gain counting process"""
+    # TODO: Implement gain counting logic
+    logging.info("Gain counting started")
+    return jsonify({'success': True, 'message': 'Gain counting started'})
 
 
 @app.route('/get_cps', methods=['GET'])
@@ -1380,6 +1671,71 @@ def set_time_interval():
     return jsonify({'success': True, 'time_interval': time_interval_value})
 
 
+@app.route('/get_motor_max', methods=['GET'])
+def get_motor_max():
+    """Get current motor max value"""
+    global motor_max
+    return jsonify({'motor_max': motor_max if motor_max is not None else 0})
+
+
+@app.route('/get_camera_serial', methods=['GET'])
+def get_camera_serial():
+    """Get camera serial number from calibration file"""
+    calibration_file = Path(__file__).parent / 'calibration_files' / 'calibrated_file.yaml'
+    camera_serial_value = ''
+    
+    if calibration_file.exists():
+        try:
+            with open(calibration_file, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
+            camera_serial_value = data.get('camera_serial', '')
+        except Exception as e:
+            logging.warning(f"Error loading camera_serial from file: {e}")
+    
+    return jsonify({'camera_serial': camera_serial_value})
+
+
+@app.route('/set_camera_serial', methods=['POST'])
+def set_camera_serial():
+    """Save camera serial number to calibration file"""
+    data = request.get_json()
+    camera_serial_value = data.get('camera_serial', '')
+    
+    if update_calibration_file_header(camera_serial=camera_serial_value):
+        return jsonify({'success': True, 'message': f'Camera serial number saved: {camera_serial_value}'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to save camera serial to calibration file'})
+
+
+@app.route('/get_technician_name', methods=['GET'])
+def get_technician_name():
+    """Get technician name from calibration file"""
+    calibration_file = Path(__file__).parent / 'calibration_files' / 'calibrated_file.yaml'
+    technician_name_value = ''
+    
+    if calibration_file.exists():
+        try:
+            with open(calibration_file, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
+            technician_name_value = data.get('technician_name', '')
+        except Exception as e:
+            logging.warning(f"Error loading technician_name from file: {e}")
+    
+    return jsonify({'technician_name': technician_name_value})
+
+
+@app.route('/set_technician_name', methods=['POST'])
+def set_technician_name():
+    """Save technician name to calibration file"""
+    data = request.get_json()
+    technician_name_value = data.get('technician_name', '')
+    
+    if update_calibration_file_header(technician_name=technician_name_value):
+        return jsonify({'success': True, 'message': f'Technician name saved: {technician_name_value}'})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to save technician name to calibration file'})
+
+
 # ============================================
 # CONSOLE FUNCTIONS
 # ============================================
@@ -1393,6 +1749,42 @@ def get_console():
         messages_text = '\n'.join(console_messages)
     
     return jsonify({'messages': messages_text})
+
+
+@app.route('/send_terminal_command', methods=['POST'])
+def send_terminal_command():
+    """Send a command to a specific terminal"""
+    global terminal_manager
+    
+    if terminal_manager is None:
+        return jsonify({'success': False, 'error': 'Terminal manager not initialized'})
+    
+    data = request.get_json()
+    terminal_name = data.get('terminal')
+    command = data.get('command', '')
+    
+    if not terminal_name:
+        return jsonify({'success': False, 'error': 'Terminal name not provided'})
+    
+    if not command:
+        return jsonify({'success': False, 'error': 'Command not provided'})
+    
+    # Send command to terminal (background listener will catch response)
+    result = terminal_manager.send_command(terminal_name, command, wait_for_response=False)
+    
+    if result is None:
+        # Check if terminal exists
+        terminal = terminal_manager.get_terminal(terminal_name)
+        if terminal is None:
+            return jsonify({'success': False, 'error': f'Terminal "{terminal_name}" not found'})
+        elif not terminal.serial_conn or not terminal.serial_conn.is_open:
+            return jsonify({'success': False, 'error': f'Terminal "{terminal_name}" is not connected'})
+        else:
+            # Command sent successfully (background listener will handle response)
+            return jsonify({'success': True, 'message': f'Command sent to {terminal_name}'})
+    else:
+        # If wait_for_response was True and we got a response
+        return jsonify({'success': True, 'message': f'Command sent to {terminal_name}', 'response': result})
 
 
 # ============================================

@@ -1,8 +1,22 @@
+camera_serial: FGKHNKFGKM
+technician_name: ORIGOR
 motor_max: 35723
 calibrations:
+- type: focus
+  zoom: 0
+  focus_value: 40
+  vis_position: 22171
+  uv_position: 9205
+  zoom_status: wide
+  distance: 0
+- type: gain
+  zoom: 0
+  gain_min_value: 576
+  gain_medium_value: 1706
+  gain_max_value: 3320
 - type: registration
   zoom: 0
-  offset_x: 139
-  offset_y: 130
-  stretch_x: 12743
-  stretch_y: 14070
+  offset_x: 196
+  offset_y: 166
+  stretch_x: 9588
+  stretch_y: 10631
