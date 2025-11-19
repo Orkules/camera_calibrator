@@ -72,15 +72,14 @@ class TerminalSession:
             self.serial_conn.close()
             logging.info(f"Terminal '{self.name}' disconnected")
     
-    def send_command(self, command: str, wait_for_response: bool = False) -> Optional[str]:
+    def send_command(self, command: str):
         """
-        Send command. If wait_for_response is True, waits for immediate response.
-        Otherwise, relies on background listener to catch the response.
+        Send command. Background listener will catch the response.
         """
         if not self.serial_conn or not self.serial_conn.is_open:
             # Attempt lazy reconnect
             if not self.connect():
-                return None
+                return
         
         try:
             # Send command
@@ -94,77 +93,9 @@ class TerminalSession:
             
             self.serial_conn.write(command.encode(self.encoding))
             self.serial_conn.flush()
-            
-            # Only wait for response if explicitly requested (for backward compatibility)
-            if wait_for_response:
-                return self._read_immediate_response(command)
-            
-            return None
                 
         except Exception as e:
             logging.error(f"Error executing command '{command}' on terminal '{self.name}': {e}")
-            return None
-    
-    def _read_immediate_response(self, sent_command: str) -> Optional[str]:
-        """Read immediate response after sending command (for backward compatibility)."""
-        response_lines = []
-        start_time = time.time()
-        quiet_start = None
-        
-        # Determine if this is a query command (needs longer timeout)
-        is_query_command = sent_command.strip().endswith('Q') or sent_command.strip() in ['MZQ', 'GAQ', 'MIOQ5', 'MIOQ7']
-        quiet_window = 0.2 if is_query_command else 0.05
-        
-        original_timeout = self.serial_conn.timeout
-        self.serial_conn.timeout = 0.1 if is_query_command else 0.05
-        
-        try:
-            while True:
-                current_time = time.time()
-                elapsed = current_time - start_time
-                
-                if elapsed >= self.timeout_seconds:
-                    break
-                
-                if self.serial_conn.in_waiting > 0:
-                    quiet_start = None
-                    try:
-                        line = self.serial_conn.readline()
-                        if line:
-                            decoded_line = line.decode(self.encoding, errors='replace').rstrip('\r\n')
-                            if decoded_line:
-                                response_lines.append(decoded_line)
-                    except Exception:
-                        break
-                else:
-                    if quiet_start is None:
-                        quiet_start = current_time
-                    elif current_time - quiet_start >= quiet_window:
-                        break
-                    time.sleep(0.005)
-        finally:
-            self.serial_conn.timeout = original_timeout
-        
-        # Filter response lines
-        filtered_lines = []
-        for line in response_lines:
-            should_ignore = False
-            
-            if line.strip() == sent_command.strip():
-                should_ignore = True
-            
-            if not should_ignore:
-                for ignore_substring in self.ignore_responses:
-                    if ignore_substring in line:
-                        should_ignore = True
-                        break
-            
-            if not should_ignore:
-                filtered_lines.append(line)
-                if self.log_callback:
-                    self.log_callback(f"RECV {self.name}: {line}")
-        
-        return '\n'.join(filtered_lines) if filtered_lines else None
     
     def read_line(self) -> Optional[str]:
         """Read a single line from the terminal (non-blocking)."""
@@ -235,14 +166,13 @@ class TerminalManager:
         """Get a terminal session by name."""
         return self.terminals.get(name)
     
-    def send_command(self, terminal_name: str, command: str, wait_for_response: bool = False) -> Optional[str]:
-        """Send a command to a specific terminal. Returns response only if wait_for_response=True."""
+    def send_command(self, terminal_name: str, command: str):
+        """Send a command to a specific terminal. Background listener will catch the response."""
         terminal = self.get_terminal(terminal_name)
         if terminal:
-            return terminal.send_command(command, wait_for_response=wait_for_response)
+            terminal.send_command(command)
         else:
             logging.error(f"Terminal '{terminal_name}' not found")
-            return None
     
     def register_response_callback(self, response_pattern: str, callback: Callable[[str, str], None]):
         """

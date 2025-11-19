@@ -158,10 +158,26 @@ commands:
       command: "UVOYS<val>" # UV zoom vertical (y) offset
       response: "UVOYR<val>"
 
+  set_camera_to_uv_command:
+    - terminal: Debug
+      command: "DMODES2" # set the camera to uv mode
+      response: "DMODER<val>"
 
+  set_camera_to_vis_command:
+    - terminal: Debug
+      command: "DMODES1" # set the camera to vis mode
+      response: "DMODER<val>"
 
+  set_camera_to_combined_command:
+    - terminal: Debug
+      command: "DMODES3" # set the camera to uv + vis mode
+      response: "DMODER<val>"
 get_values:
 
+  get_camera_mode_value:
+    - terminal: Debug
+      command: "DMODEQ"
+      response: "DMODER<val>"
 
   # # get motor max value
   get_motor_max_value:
@@ -195,10 +211,10 @@ get_values:
   #     response: "MIOR<val>"
 
   # get motor position
-  # get_uv_motor_position:
-  #   - terminal: FPGA
-  #     command: "MIOQ1"
-  #     response: "MIOR<val>"
+  get_uv_motor_position:
+    - terminal: FPGA
+      command: "MIOQ1"
+      response: "MIOR<val>"
 
   # get uv offset x value
   get_uv_offset_x_value:

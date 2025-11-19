@@ -51,7 +51,10 @@ vis_position = 0  # VIS position value (for future use)
 uv_position = 0  # UV position value (for future use)
 zoom_status = ""  # Zoom status value (for future use)
 distance = 0  # Distance value (for future use)
+distance_to_target = 1  # Distance to target (1-100)
+uv_motor_position = 0  # UV motor position value (from get_uv_motor_position)
 uv_vis_focus_info = {}  # Dictionary with uv_motor_pos, vis_focus_point, zoom_status, distance
+camera_mode = 0  # Camera mode: 1=VIS ONLY, 2=UV ONLY, 3=UV & VIS
 
 # Interval update thread
 update_thread = None
@@ -95,8 +98,8 @@ def add_console_message(message: str):
 
 
 def load_calibration_file_header():
-    """Load camera_serial and technician_name from calibration file."""
-    global camera_serial, technician_name
+    """Load camera_serial, technician_name, and distance_to_target from calibration file."""
+    global camera_serial, technician_name, distance_to_target
     
     calibration_file = Path(__file__).parent / 'calibration_files' / 'calibrated_file.yaml'
     
@@ -112,6 +115,10 @@ def load_calibration_file_header():
             if 'technician_name' in data:
                 technician_name = data['technician_name']
                 logging.info(f"Loaded technician_name from file: {technician_name}")
+            
+            if 'distance_to_target' in data:
+                distance_to_target = data['distance_to_target']
+                logging.info(f"Loaded distance_to_target from file: {distance_to_target}")
         except Exception as e:
             logging.warning(f"Error loading calibration file header: {e}")
 
@@ -138,7 +145,7 @@ def register_terminal_callbacks():
     """Register callbacks for automatic parsing of terminal responses based on config."""
     global terminal_manager, config, zoom_value, gain_value, focus_value, motor_max
     global reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y, uv_vis_focus_info
-    global gain_min_value, gain_medium_value, gain_max_value
+    global gain_min_value, gain_medium_value, gain_max_value, camera_mode, uv_motor_position
     
     if terminal_manager is None or config is None:
         return
@@ -163,17 +170,12 @@ def register_terminal_callbacks():
         'set_min_gain_command': ('gain_min_value', None),
         'set_medium_gain_command': ('gain_medium_value', None),
         'set_max_gain_command': ('gain_max_value', None),
+        'set_camera_to_uv_command': ('camera_mode', None),
+        'set_camera_to_vis_command': ('camera_mode', None),
+        'set_camera_to_combined_command': ('camera_mode', None),
+        'get_camera_mode_value': ('camera_mode', None),
+        'get_uv_motor_position': ('uv_motor_position', None),
     }
-    
-    # Special case for motor_max (from operations)
-    motor_max_pattern = None
-    if 'operations' in config and 'motor_max_script' in config['operations']:
-        for step in config['operations']['motor_max_script']:
-            response = step.get('response')
-            # Skip None values, but keep looking for actual response pattern
-            if response is not None and response != 'None' and response:
-                motor_max_pattern = response
-                break
     
     # Collect all response patterns from config
     response_to_globals = {}  # response_pattern -> list of (global_var_name, validation_func)
@@ -201,19 +203,6 @@ def register_terminal_callbacks():
                         if response_pattern not in response_to_globals:
                             response_to_globals[response_pattern] = []
                         response_to_globals[response_pattern].append((global_var_name, validation_func))
-    
-    # Add motor_max pattern
-    if motor_max_pattern:
-        logging.info(f"Found motor_max_pattern in config: '{motor_max_pattern}'")
-        if motor_max_pattern not in response_to_globals:
-            response_to_globals[motor_max_pattern] = []
-        # Motor max should be positive
-        def validate_motor_max(val):
-            return val > 0
-        response_to_globals[motor_max_pattern].append(('motor_max', validate_motor_max))
-        logging.info(f"Added motor_max callback for pattern '{motor_max_pattern}'")
-    else:
-        logging.warning("motor_max_pattern not found in config operations!")
     
     # Handle auto_responses with special handlers
     handler_functions = {
@@ -263,16 +252,11 @@ def register_terminal_callbacks():
                             elif global_var_name == 'focus_value':
                                 globals()['focus_value'] = parsed
                                 logging.info(f"Auto-updated focus value: {parsed} from {response}")
-                            elif global_var_name == 'motor_max':
-                                old_value = globals()['motor_max']
-                                globals()['motor_max'] = parsed
-                                logging.info(f"Motor max updated: {old_value} -> {parsed} from response: {response}")
-                                add_console_message(f"Motor max updated: {parsed}")
-                                # Update calibration file asynchronously (don't block callback)
-                                def update_file_async():
-                                    time.sleep(0.1)  # Small delay to avoid blocking
-                                    initialize_calibration_file()
-                                threading.Thread(target=update_file_async, daemon=True).start()
+                            elif global_var_name == 'uv_motor_position':
+                                old_value = globals()['uv_motor_position']
+                                globals()['uv_motor_position'] = parsed
+                                logging.info(f"Auto-updated UV motor position: {old_value} -> {parsed} from {response}")
+                                add_console_message(f"UV motor position updated: {parsed}")
                             elif global_var_name == 'reg_offset_x':
                                 globals()['reg_offset_x'] = parsed
                                 logging.info(f"Auto-updated UV offset X: {parsed} from {response}")
@@ -294,6 +278,11 @@ def register_terminal_callbacks():
                             elif global_var_name == 'gain_max_value':
                                 globals()['gain_max_value'] = parsed
                                 logging.info(f"Auto-updated gain max value: {parsed} from {response}")
+                            elif global_var_name == 'camera_mode':
+                                old_mode = globals()['camera_mode']
+                                globals()['camera_mode'] = parsed
+                                logging.info(f"Auto-updated camera mode: {old_mode} -> {parsed} from {response}")
+                                add_console_message(f"Camera mode updated: {parsed}")
             return callback
         
         callback_func = make_callback(response_pattern, global_vars)
@@ -454,8 +443,8 @@ def execute_command_from_config(command_name: str, value: int = None):
             logging.error(f"Terminal '{terminal_name}' is not connected (port: {terminal.port})")
             return False, None, None
         
-        # Send command without waiting for response (background listener will catch it)
-        terminal.send_command(command, wait_for_response=False)
+        # Send command (background listener will catch the response)
+        terminal.send_command(command)
         
         # For backward compatibility, we still track the response pattern
         # but the actual response will be caught by the background listener
@@ -521,8 +510,8 @@ def execute_operation_from_config(operation_name: str):
             logging.error(f"Terminal '{terminal_name}' is not connected (port: {terminal.port})")
             return None
         
-        # Send command without waiting for response (background listener will catch it)
-        terminal.send_command(command, wait_for_response=False)
+        # Send command (background listener will catch the response)
+        terminal.send_command(command)
         
         # For backward compatibility, we still track the response pattern
         # but the actual response will be caught by the background listener
@@ -542,13 +531,13 @@ def execute_operation_from_config(operation_name: str):
 def find_motor_max() -> int:
     """
     Find motor maximum position by executing motor_max_script.
-    Background listener will catch the response and update motor_max via callback.
-    This function waits for the callback to update the value.
+    Waits for callback to update uv_motor_position from the response.
+    Then sets motor_max = uv_motor_position.
     
     Returns:
         Motor max value as integer, or None if failed
     """
-    global motor_max, terminal_manager, config
+    global motor_max, terminal_manager, config, uv_motor_position
     
     if terminal_manager is None or config is None:
         logging.error("Terminal manager or config not initialized")
@@ -562,10 +551,6 @@ def find_motor_max() -> int:
         logging.error("motor_max_script not found in config")
         add_console_message("ERROR: motor_max_script not found in config")
         return None
-    
-    # Store initial motor_max value
-    initial_motor_max = motor_max
-    logging.info(f"Initial motor_max value: {initial_motor_max}")
     
     # Execute each step in the operation sequence (send commands, background listener will catch responses)
     for step in operation_config:
@@ -597,36 +582,48 @@ def find_motor_max() -> int:
         else:
             logging.info(f"Sending command '{command}' to terminal '{terminal_name}' (no response expected)...")
         add_console_message(f"Sending: {command} to {terminal_name}")
-        terminal.send_command(command, wait_for_response=False)
+        terminal.send_command(command)
         
         # Only wait for response if this step expects one
         if response_pattern and response_pattern != "None":
-            # Wait for callback to update motor_max (max 20 seconds, script has 10s delay)
+            # Wait for callback to update uv_motor_position (max 20 seconds, script has 10s delay)
             max_wait_time = 20.0
             start_time = time.time()
-            logging.info(f"Waiting for response matching pattern '{response_pattern}' (max {max_wait_time}s)...")
-            add_console_message(f"Waiting for response: {response_pattern}")
+            initial_uv_motor_position = uv_motor_position
+            logging.info(f"Waiting for UV motor position update (max {max_wait_time}s)...")
+            add_console_message(f"Waiting for UV motor position: {response_pattern}")
             while time.time() - start_time < max_wait_time:
-                # Check if motor_max was updated (either from None to a value, or changed value)
-                if motor_max is not None and motor_max > 0:
-                    if initial_motor_max is None or initial_motor_max == 0 or motor_max != initial_motor_max:
-                        logging.info(f"Motor max updated via callback: {motor_max}")
-                        add_console_message(f"Motor max found: {motor_max}")
+                # Check if uv_motor_position was updated
+                if uv_motor_position is not None and uv_motor_position > 0:
+                    if initial_uv_motor_position != uv_motor_position:
+                        # Update motor_max with uv_motor_position value
+                        motor_max = uv_motor_position
+                        logging.info(f"Motor max set to UV motor position: {motor_max}")
+                        add_console_message(f"Motor max calculated: {motor_max}")
+                        # Update calibration file asynchronously
+                        def update_file_async():
+                            time.sleep(0.1)  # Small delay to avoid blocking
+                            initialize_calibration_file()
+                        threading.Thread(target=update_file_async, daemon=True).start()
                         return motor_max
                 elapsed = time.time() - start_time
                 if int(elapsed) % 2 == 0 and elapsed > 0.5:  # Log every 2 seconds
-                    logging.debug(f"Still waiting for motor_max... (elapsed: {elapsed:.1f}s, current: {motor_max})")
-                time.sleep(0.2)  # Check every 200ms (less frequent to reduce CPU)
+                    logging.debug(f"Still waiting for UV motor position... (elapsed: {elapsed:.1f}s, current: {uv_motor_position})")
+                time.sleep(0.2)  # Check every 200ms
             
-            logging.warning(f"Timeout waiting for motor max response via callback. Current value: {motor_max}")
-            add_console_message(f"WARNING: Timeout waiting for motor max. Current value: {motor_max}")
+            logging.warning(f"Timeout waiting for UV motor position. Current value: {uv_motor_position}")
+            add_console_message(f"WARNING: Timeout waiting for UV motor position. Current value: {uv_motor_position}")
     
-    # Return current motor_max (may have been updated by callback)
-    if motor_max is not None and motor_max > 0:
+    # If we got a value, use it anyway
+    if uv_motor_position is not None and uv_motor_position > 0:
+        motor_max = uv_motor_position
+        logging.info(f"Motor max set to UV motor position: {motor_max}")
+        add_console_message(f"Motor max calculated: {motor_max}")
+        initialize_calibration_file()
         return motor_max
     
-    logging.warning("Motor max script completed but no valid value received")
-    return motor_max
+    logging.warning("Motor max calculation failed - no valid UV motor position received")
+    return None
 
 
 def terminal_initialization():
@@ -634,7 +631,7 @@ def terminal_initialization():
     Initialize terminal values: get zoom, gain, focus, UV registration from terminal and find motor max.
     Updates global variables and UI.
     """
-    global zoom_value, gain_value, focus_value, motor_max, reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y
+    global zoom_value, gain_value, focus_value, motor_max, reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y, camera_mode
     
     logging.info("Starting terminal initialization...")
     
@@ -674,16 +671,19 @@ def terminal_initialization():
     time.sleep(0.1)
     logging.info(f"Initialized UV magnify Y: {reg_stretch_y}")
     
+    # Get camera mode value
+    get_value_from_config('get_camera_mode_value')
+    time.sleep(0.1)
+    logging.info(f"Initialized camera mode: {camera_mode}")
+    
     # Find motor max position (waits for response)
     motor_max_result = find_motor_max()
     if motor_max_result is not None and motor_max_result > 0:
         logging.info(f"Initialized motor max: {motor_max}")
         # Initialize calibration file with motor_max (only if we got a valid value)
-        # Note: If motor_max updates later via callback, the file will be updated asynchronously
         initialize_calibration_file()
     else:
         logging.warning(f"Motor max initialization failed or returned invalid value: {motor_max}")
-        # Don't create file with 0 - wait for callback to update it later
     
     logging.info("Terminal initialization completed")
 
@@ -691,15 +691,16 @@ def terminal_initialization():
 def save_calibration_to_file(calibration_type: str, values: dict):
     """
     Save calibration data to YAML file.
-    If entry of same type AND zoom value exists, it will be overwritten.
-    Otherwise, a new entry will be added (allowing multiple entries of same type with different zoom values).
+    For 'focus' and 'registration' types: If entry of same type, zoom value AND distance_to_target exists, it will be overwritten.
+    Otherwise, a new entry will be added (allowing multiple entries of same type with different zoom values or distance_to_target).
+    For other types: If entry of same type AND zoom value exists, it will be overwritten.
     
     Args:
         calibration_type: Type of calibration ('zoom', 'focus', 'gain', 'registration')
-        values: Dictionary with calibration values including zoom_value
+        values: Dictionary with calibration values including zoom_value and distance_to_target (for focus/registration)
     """
     from collections import OrderedDict
-    global motor_max, zoom_value
+    global motor_max, zoom_value, distance_to_target
     
     calibration_file = Path(__file__).parent / 'calibration_files' / 'calibrated_file.yaml'
     
@@ -718,6 +719,9 @@ def save_calibration_to_file(calibration_type: str, values: dict):
     if 'motor_max' not in data:
         data['motor_max'] = motor_max if motor_max is not None else 0
     
+    if 'distance_to_target' not in data:
+        data['distance_to_target'] = distance_to_target
+    
     if 'calibrations' not in data:
         data['calibrations'] = []
     
@@ -728,16 +732,31 @@ def save_calibration_to_file(calibration_type: str, values: dict):
         **values  # Add all other values
     }
     
-    # Find existing entry of same type AND zoom value and replace it, or add new one
+    # For focus and registration, also include distance_to_target in the entry
+    if calibration_type in ['focus', 'registration']:
+        entry['distance_to_target'] = distance_to_target
+    
+    # Find existing entry and replace it, or add new one
     found = False
     for i, existing_entry in enumerate(data['calibrations']):
-        if existing_entry.get('type') == calibration_type and existing_entry.get('zoom') == zoom_value:
-            data['calibrations'][i] = entry  # Overwrite existing entry (same type AND zoom)
-            found = True
-            break
+        if existing_entry.get('type') == calibration_type:
+            # For focus and registration, check both zoom and distance_to_target
+            if calibration_type in ['focus', 'registration']:
+                existing_zoom = existing_entry.get('zoom')
+                existing_distance = existing_entry.get('distance_to_target')
+                if existing_zoom == zoom_value and existing_distance == distance_to_target:
+                    data['calibrations'][i] = entry  # Overwrite existing entry
+                    found = True
+                    break
+            else:
+                # For other types, check only zoom
+                if existing_entry.get('zoom') == zoom_value:
+                    data['calibrations'][i] = entry  # Overwrite existing entry
+                    found = True
+                    break
     
     if not found:
-        # Add new entry if not found (different zoom value or new type)
+        # Add new entry if not found
         data['calibrations'].append(entry)
     
     # Create ordered dict with header fields first
@@ -747,6 +766,8 @@ def save_calibration_to_file(calibration_type: str, values: dict):
     if 'technician_name' in data:
         ordered_data['technician_name'] = data['technician_name']
     ordered_data['motor_max'] = data.get('motor_max', 0)
+    if 'distance_to_target' in data:
+        ordered_data['distance_to_target'] = data.get('distance_to_target', 1)
     ordered_data['calibrations'] = data.get('calibrations', [])
     
     # Save to file
@@ -757,7 +778,10 @@ def save_calibration_to_file(calibration_type: str, values: dict):
         with open(calibration_file, 'w', encoding='utf-8') as f:
             yaml.dump(dict(ordered_data), f, default_flow_style=False, allow_unicode=True, sort_keys=False)
         
-        logging.info(f"Calibration saved: {calibration_type} at zoom {zoom_value}")
+        if calibration_type in ['focus', 'registration']:
+            logging.info(f"Calibration saved: {calibration_type} at zoom {zoom_value}, distance_to_target {distance_to_target}")
+        else:
+            logging.info(f"Calibration saved: {calibration_type} at zoom {zoom_value}")
         return True
     except Exception as e:
         logging.error(f"Error saving calibration file: {e}", exc_info=True)
@@ -765,8 +789,9 @@ def save_calibration_to_file(calibration_type: str, values: dict):
 
 
 def update_calibration_file_header(camera_serial: str = None, technician_name: str = None):
-    """Update header fields in calibration file (camera_serial, technician_name)."""
+    """Update header fields in calibration file (camera_serial, technician_name, distance_to_target)."""
     from collections import OrderedDict
+    global distance_to_target
     
     calibration_file = Path(__file__).parent / 'calibration_files' / 'calibrated_file.yaml'
     
@@ -785,6 +810,9 @@ def update_calibration_file_header(camera_serial: str = None, technician_name: s
     if 'motor_max' not in data:
         data['motor_max'] = 0
     
+    if 'distance_to_target' not in data:
+        data['distance_to_target'] = distance_to_target
+    
     if 'calibrations' not in data:
         data['calibrations'] = []
     
@@ -797,6 +825,9 @@ def update_calibration_file_header(camera_serial: str = None, technician_name: s
         data['technician_name'] = technician_name
         logging.info(f"Updated technician_name in calibration file: {technician_name}")
     
+    # Always update distance_to_target from global variable
+    data['distance_to_target'] = distance_to_target
+    
     # Create ordered dict with header fields first
     ordered_data = OrderedDict()
     if 'camera_serial' in data:
@@ -804,6 +835,7 @@ def update_calibration_file_header(camera_serial: str = None, technician_name: s
     if 'technician_name' in data:
         ordered_data['technician_name'] = data['technician_name']
     ordered_data['motor_max'] = data.get('motor_max', 0)
+    ordered_data['distance_to_target'] = data.get('distance_to_target', 1)
     ordered_data['calibrations'] = data.get('calibrations', [])
     
     # Save to file
@@ -818,8 +850,8 @@ def update_calibration_file_header(camera_serial: str = None, technician_name: s
 
 
 def initialize_calibration_file():
-    """Initialize calibration file with motor_max value."""
-    global motor_max
+    """Initialize calibration file with motor_max and distance_to_target values."""
+    global motor_max, distance_to_target
     
     calibration_file = Path(__file__).parent / 'calibration_files' / 'calibrated_file.yaml'
     
@@ -832,22 +864,30 @@ def initialize_calibration_file():
             with open(calibration_file, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f) or {}
             # Update motor_max if it changed or if it's 0 and we have a new value
+            updated = False
             if 'motor_max' not in data or (data['motor_max'] != current_motor_max and current_motor_max > 0):
                 data['motor_max'] = current_motor_max
-                # Ensure calibrations list exists
-                if 'calibrations' not in data:
-                    data['calibrations'] = []
-                # Save updated motor_max
+                updated = True
+            # Update distance_to_target
+            if 'distance_to_target' not in data or data.get('distance_to_target') != distance_to_target:
+                data['distance_to_target'] = distance_to_target
+                updated = True
+            # Ensure calibrations list exists
+            if 'calibrations' not in data:
+                data['calibrations'] = []
+            # Save if updated
+            if updated:
                 with open(calibration_file, 'w', encoding='utf-8') as f:
                     yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
-                logging.info(f"Calibration file motor_max updated to: {current_motor_max}")
+                logging.info(f"Calibration file updated: motor_max={current_motor_max}, distance_to_target={distance_to_target}")
             return
         except Exception as e:
             logging.warning(f"Error loading calibration file: {e}, creating new file")
     
-    # Initialize new file with motor_max (even if 0, it will be updated later)
+    # Initialize new file with motor_max and distance_to_target
     data = {
         'motor_max': current_motor_max,
+        'distance_to_target': distance_to_target,
         'calibrations': []
     }
     
@@ -855,7 +895,7 @@ def initialize_calibration_file():
         calibration_file.parent.mkdir(parents=True, exist_ok=True)
         with open(calibration_file, 'w', encoding='utf-8') as f:
             yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
-        logging.info(f"Calibration file initialized with motor_max: {current_motor_max}")
+        logging.info(f"Calibration file initialized with motor_max: {current_motor_max}, distance_to_target: {distance_to_target}")
     except Exception as e:
         logging.error(f"Error initializing calibration file: {e}", exc_info=True)
 
@@ -907,7 +947,7 @@ def get_value_from_config(get_command_name: str) -> int:
         logging.info(f"[DEBUG] Sending command '{command}' to terminal '{terminal_name}' for '{get_command_name}'")
         # Send command - background listener will catch the response and update via callbacks
         # For initialization, we wait a bit for the response
-        terminal.send_command(command, wait_for_response=False)
+        terminal.send_command(command)
         
         # Wait a short time for response (background listener should catch it quickly)
         import time
@@ -1434,12 +1474,18 @@ def smart_focus():
 @app.route('/get_focus', methods=['GET'])
 def get_focus():
     """Get current focus value"""
-    global focus_value, auto_focus_enabled, uv_vis_focus_info
+    global focus_value, auto_focus_enabled, uv_vis_focus_info, uv_motor_position
+    # If auto focus is enabled, use uv_vis_focus_info, otherwise use uv_motor_position
+    if auto_focus_enabled:
+        uv_position = uv_vis_focus_info.get('uv_motor_pos', -1)
+    else:
+        uv_position = uv_motor_position if uv_motor_position > 0 else -1
+    
     return jsonify({
         'focus_value': focus_value,
         'auto_focus_enabled': auto_focus_enabled,
         'vis_position': uv_vis_focus_info.get('vis_focus_point', -1),
-        'uv_position': uv_vis_focus_info.get('uv_motor_pos', -1),
+        'uv_position': uv_position,
         'zoom_status': uv_vis_focus_info.get('zoom_status', ''),
         'distance': uv_vis_focus_info.get('distance', -1)
     })
@@ -1679,6 +1725,25 @@ def get_motor_max():
     return jsonify({'motor_max': motor_max if motor_max is not None else 0})
 
 
+@app.route('/calculate_motor_max', methods=['POST'])
+def calculate_motor_max():
+    """Calculate motor max by executing motor_max_script and getting UV motor position"""
+    global motor_max
+    
+    motor_max_result = find_motor_max()
+    if motor_max_result is not None and motor_max_result > 0:
+        return jsonify({
+            'success': True, 
+            'message': f'Motor max calculated: {motor_max}',
+            'motor_max': motor_max
+        })
+    else:
+        return jsonify({
+            'success': False, 
+            'error': f'Failed to calculate motor max. Current value: {motor_max if motor_max is not None else 0}'
+        })
+
+
 @app.route('/get_camera_serial', methods=['GET'])
 def get_camera_serial():
     """Get camera serial number from calibration file"""
@@ -1737,6 +1802,71 @@ def set_technician_name():
         return jsonify({'success': False, 'error': 'Failed to save technician name to calibration file'})
 
 
+@app.route('/get_distance_to_target', methods=['GET'])
+def get_distance_to_target():
+    """Get current distance to target value"""
+    global distance_to_target
+    return jsonify({'distance_to_target': distance_to_target})
+
+
+@app.route('/set_distance_to_target', methods=['POST'])
+def set_distance_to_target():
+    """Set distance to target value"""
+    global distance_to_target
+    data = request.get_json()
+    distance_value = data.get('distance_to_target')
+    
+    if distance_value is None:
+        return jsonify({'success': False, 'error': 'Distance value not provided'})
+    
+    try:
+        distance_value = int(distance_value)
+        if distance_value < 1 or distance_value > 100:
+            return jsonify({'success': False, 'error': 'Distance value out of range (1-100)'})
+        
+        distance_to_target = distance_value
+        # Update calibration file header with new distance_to_target
+        update_calibration_file_header()
+        return jsonify({'success': True, 'message': f'Distance to target set to: {distance_to_target}', 'distance_to_target': distance_to_target})
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Invalid distance value'})
+
+
+@app.route('/get_camera_mode', methods=['GET'])
+def get_camera_mode():
+    """Get current camera mode"""
+    global camera_mode
+    return jsonify({'camera_mode': camera_mode})
+
+
+@app.route('/set_camera_mode', methods=['POST'])
+def set_camera_mode():
+    """Set camera mode: 1=VIS ONLY, 2=UV ONLY, 3=UV & VIS"""
+    global camera_mode
+    data = request.get_json()
+    mode = data.get('mode')
+    
+    if mode == 1:
+        command_name = 'set_camera_to_vis_command'
+    elif mode == 2:
+        command_name = 'set_camera_to_uv_command'
+    elif mode == 3:
+        command_name = 'set_camera_to_combined_command'
+    else:
+        return jsonify({'success': False, 'error': 'Invalid camera mode'})
+    
+    success, response, parsed_value = execute_command_from_config(command_name)
+    
+    if success:
+        # Update camera_mode immediately (callback will also update it when response arrives)
+        # This ensures the UI shows the correct state even if callback is delayed
+        camera_mode = mode
+        logging.info(f"Camera mode set to {mode} (will be confirmed by callback)")
+        return jsonify({'success': True, 'message': f'Camera mode set to {mode}', 'camera_mode': mode})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to set camera mode'})
+
+
 # ============================================
 # CONSOLE FUNCTIONS
 # ============================================
@@ -1771,21 +1901,15 @@ def send_terminal_command():
         return jsonify({'success': False, 'error': 'Command not provided'})
     
     # Send command to terminal (background listener will catch response)
-    result = terminal_manager.send_command(terminal_name, command, wait_for_response=False)
-    
-    if result is None:
-        # Check if terminal exists
-        terminal = terminal_manager.get_terminal(terminal_name)
-        if terminal is None:
-            return jsonify({'success': False, 'error': f'Terminal "{terminal_name}" not found'})
-        elif not terminal.serial_conn or not terminal.serial_conn.is_open:
-            return jsonify({'success': False, 'error': f'Terminal "{terminal_name}" is not connected'})
-        else:
-            # Command sent successfully (background listener will handle response)
-            return jsonify({'success': True, 'message': f'Command sent to {terminal_name}'})
+    terminal = terminal_manager.get_terminal(terminal_name)
+    if terminal is None:
+        return jsonify({'success': False, 'error': f'Terminal "{terminal_name}" not found'})
+    elif not terminal.serial_conn or not terminal.serial_conn.is_open:
+        return jsonify({'success': False, 'error': f'Terminal "{terminal_name}" is not connected'})
     else:
-        # If wait_for_response was True and we got a response
-        return jsonify({'success': True, 'message': f'Command sent to {terminal_name}', 'response': result})
+        # Command sent successfully (background listener will handle response)
+        terminal_manager.send_command(terminal_name, command)
+        return jsonify({'success': True, 'message': f'Command sent to {terminal_name}'})
 
 
 # ============================================
@@ -1847,6 +1971,12 @@ def update_values_from_terminal():
             if focus_val is not None:
                 focus_value = focus_val
                 logging.debug(f"Updated focus value from terminal: {focus_val}")
+            
+            # Update UV motor position (only if auto focus is disabled)
+            global auto_focus_enabled, uv_motor_position
+            if not auto_focus_enabled:
+                get_value_from_config('get_uv_motor_position')
+                logging.debug(f"Requested UV motor position update (current: {uv_motor_position})")
             
             # Sleep until next update
             time.sleep(interval_seconds)
