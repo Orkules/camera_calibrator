@@ -4,12 +4,12 @@ stream:
   rtsp_url: "rtsp://192.168.0.100:9079/vis"
 
 settings:
-  update_interval_ms: 3000  # Interval for auto-updating zoom, gain, focus values from terminal
+  update_interval_ms: 300000  # Interval for auto-updating zoom, gain, focus values from terminal
 
 terminals:
   - name: "Linux"
     type: linux
-    port: "COM9"               # Update with actual COM port
+    port: "COM15"               # Update with actual COM port
     baudrate: 115200
     eol: "\n"
     encoding: "utf-8"
@@ -18,7 +18,7 @@ terminals:
 
   - name: "Debug"
     type: debug
-    port: "COM8"               # Update with actual COM port
+    port: "COM14"               # Update with actual COM port
     baudrate: 115200
     eol: "\n"
     encoding: "utf-8"
@@ -27,7 +27,7 @@ terminals:
 
   - name: "FPGA"
     type: fpga
-    port: "COM10"               # Update with actual COM port
+    port: "COM13"               # Update with actual COM port
     baudrate: 115200
     eol: "\r\n"
     encoding: "utf-8"
@@ -66,6 +66,18 @@ operations:
     # - terminal: Debug
     #   command: "AFS1" # Enable auto focus
     #   response: None
+  
+
+  unsgrad_command_script:
+    - terminal: Debug
+      command: "UNSGRAD"
+      response: None
+
+    - delay: 300 
+
+    - terminal: Debug
+      command: "PWS$R!H"
+      response: None
 
 
 

@@ -635,6 +635,30 @@ def terminal_initialization():
     
     logging.info("Starting terminal initialization...")
     
+    # Execute unsgrad_command_script if configured
+    if config and 'operations' in config and 'unsgrad_command_script' in config['operations']:
+        logging.info("Executing unsgrad_command_script...")
+        add_console_message("Executing unsgrad_command_script...")
+        result = execute_operation_from_config('unsgrad_command_script')
+        if result is not None:
+            logging.info("unsgrad_command_script executed successfully")
+            add_console_message("unsgrad_command_script executed successfully")
+        else:
+            logging.warning("unsgrad_command_script execution failed or returned no result")
+            add_console_message("WARNING: unsgrad_command_script execution failed")
+    
+    # Execute set_camera_ip_command if configured
+    if config and 'commands' in config and 'set_camera_ip_command' in config['commands']:
+        logging.info("Executing set_camera_ip_command...")
+        add_console_message("Setting camera IP address...")
+        success, response, parsed_value = execute_command_from_config('set_camera_ip_command')
+        if success:
+            logging.info("set_camera_ip_command executed successfully")
+            add_console_message("Camera IP address set successfully")
+        else:
+            logging.warning("set_camera_ip_command execution failed")
+            add_console_message("WARNING: Failed to set camera IP address")
+    
     # Get zoom value from terminal
     get_value_from_config('get_zoom_value')
     import time
