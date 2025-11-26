@@ -395,10 +395,11 @@ def parse_response_value(response: str, response_pattern: str) -> int:
     Parse a value from terminal response.
     Example: parse_response_value("MZR15", "MZR<val>") returns 15
     Example: parse_response_value("MIOR-1234", "MIOR-<val>") returns 1234
+    Example: parse_response_value("UVZCR 5 X O 400", "UVZCR <zoom> X O <val>") returns 400
     
     Args:
         response: The response string from terminal
-        response_pattern: Pattern like "MZR<val>" or "MIOR-<val>" or "GAR<val>"
+        response_pattern: Pattern like "MZR<val>" or "MIOR-<val>" or "UVZCR <zoom> X O <val>"
     
     Returns:
         Parsed integer value, or None if parsing fails
@@ -406,9 +407,10 @@ def parse_response_value(response: str, response_pattern: str) -> int:
     if not response or not response_pattern:
         return None
     
+    # Replace <zoom> with regex pattern to match any number (we don't capture it)
     # Replace <val> with regex pattern to capture number (including negative)
-    # Handle patterns like "MIOR-<val>" or "MZR<val>"
-    pattern = response_pattern.replace('<val>', r'(-?\d+)')
+    pattern = response_pattern.replace('<zoom>', r'\d+')
+    pattern = pattern.replace('<val>', r'(-?\d+)')
     
     match = re.search(pattern, response)
     if match:
@@ -488,11 +490,15 @@ def execute_command_from_config(command_name: str, value: int = None):
         command_template = step.get('command', '')
         response_pattern = step.get('response')
         
-        # Replace <val> with actual value if provided
-        if value is not None and '<val>' in command_template:
-            command = command_template.replace('<val>', str(value))
+        # Replace <zoom> with current zoom_value
+        if '<zoom>' in command_template:
+            command = command_template.replace('<zoom>', str(zoom_value))
         else:
             command = command_template
+        
+        # Replace <val> with actual value if provided
+        if value is not None and '<val>' in command:
+            command = command.replace('<val>', str(value))
         
         # Send command to terminal
         terminal = terminal_manager.get_terminal(terminal_name)
@@ -841,16 +847,16 @@ def save_calibration_to_file(calibration_type: str, values: dict):
         **values  # Add all other values
     }
     
-    # For focus and registration, also include distance_to_target in the entry
-    if calibration_type in ['focus', 'registration']:
+    # For focus and registration types, also include distance_to_target in the entry
+    if calibration_type in ['focus', 'registration', 'registration_wide', 'registration_narrow']:
         entry['distance_to_target'] = distance_to_target
     
     # Find existing entry and replace it, or add new one
     found = False
     for i, existing_entry in enumerate(data['calibrations']):
         if existing_entry.get('type') == calibration_type:
-            # For focus and registration, check both zoom and distance_to_target
-            if calibration_type in ['focus', 'registration']:
+            # For focus and registration types, check both zoom and distance_to_target
+            if calibration_type in ['focus', 'registration', 'registration_wide', 'registration_narrow']:
                 existing_zoom = existing_entry.get('zoom')
                 existing_distance = existing_entry.get('distance_to_target')
                 if existing_zoom == zoom_value and existing_distance == distance_to_target:
@@ -887,7 +893,7 @@ def save_calibration_to_file(calibration_type: str, values: dict):
         with open(calibration_file, 'w', encoding='utf-8') as f:
             yaml.dump(dict(ordered_data), f, default_flow_style=False, allow_unicode=True, sort_keys=False)
         
-        if calibration_type in ['focus', 'registration']:
+        if calibration_type in ['focus', 'registration', 'registration_wide', 'registration_narrow']:
             logging.info(f"Calibration saved: {calibration_type} at zoom {zoom_value}, distance_to_target {distance_to_target}")
         else:
             logging.info(f"Calibration saved: {calibration_type} at zoom {zoom_value}")
@@ -1042,6 +1048,10 @@ def get_value_from_config(get_command_name: str) -> int:
         terminal_name = step.get('terminal')
         command = step.get('command', '')
         response_pattern = step.get('response')
+        
+        # Replace <zoom> with current zoom_value
+        if '<zoom>' in command:
+            command = command.replace('<zoom>', str(zoom_value))
         
         terminal = terminal_manager.get_terminal(terminal_name)
         if not terminal:
@@ -1481,21 +1491,43 @@ def set_registration():
 
 @app.route('/reg_ok', methods=['POST'])
 def reg_ok():
-    """Registration OK button - saves all registration values (both shift and stretch/compress)"""
+    """Registration OK button - saves all registration values based on master_registration_mode"""
     global reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y
+    global master_registration_mode, master_registration
     
-    # Save all four values (both shift and stretch/compress)
-    values = {
-        'offset_x': reg_offset_x,      # Shift X
-        'offset_y': reg_offset_y,      # Shift Y
-        'stretch_x': reg_stretch_x,    # Stretch/Compress X
-        'stretch_y': reg_stretch_y     # Stretch/Compress Y
-    }
+    # Determine which values to save based on master_registration_mode
+    if master_registration_mode == "per_zoom":
+        values = {
+            'offset_x': reg_offset_x,
+            'offset_y': reg_offset_y,
+            'stretch_x': reg_stretch_x,
+            'stretch_y': reg_stretch_y
+        }
+        calibration_type = 'registration'
+        message = f'Per-Zoom registration saved: offset({reg_offset_x}, {reg_offset_y}), magnify({reg_stretch_x}, {reg_stretch_y})'
+    elif master_registration_mode == "wide":
+        values = {
+            'offset_x': master_registration["wide"]["offset_x"],
+            'offset_y': master_registration["wide"]["offset_y"],
+            'stretch_x': master_registration["wide"]["stretch_x"],
+            'stretch_y': master_registration["wide"]["stretch_y"]
+        }
+        calibration_type = 'registration_wide'
+        message = f'Wide registration saved: offset({values["offset_x"]}, {values["offset_y"]}), magnify({values["stretch_x"]}, {values["stretch_y"]})'
+    else:  # narrow
+        values = {
+            'offset_x': master_registration["narrow"]["offset_x"],
+            'offset_y': master_registration["narrow"]["offset_y"],
+            'stretch_x': master_registration["narrow"]["stretch_x"],
+            'stretch_y': master_registration["narrow"]["stretch_y"]
+        }
+        calibration_type = 'registration_narrow'
+        message = f'Narrow registration saved: offset({values["offset_x"]}, {values["offset_y"]}), magnify({values["stretch_x"]}, {values["stretch_y"]})'
     
-    if save_calibration_to_file('registration', values):
+    if save_calibration_to_file(calibration_type, values):
         return jsonify({
             'success': True, 
-            'message': f'Registration values saved: shift({reg_offset_x}, {reg_offset_y}), stretch({reg_stretch_x}, {reg_stretch_y})'
+            'message': message
         })
     else:
         return jsonify({'success': False, 'error': 'Failed to save registration values to calibration file'})

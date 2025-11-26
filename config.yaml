@@ -148,27 +148,27 @@ commands:
     - terminal: Debug
       command: "GACCS"
       response: None
-# UV calibration - magnification (width/height)
+# UV calibration - per zoom (using UVZC commands)
   uv_magnify_x_command:
-    - terminal: FPGA
-      command: "UVRXS<val>" # UV zoom horizontal (x) magnification
-      response: "UVRXR<val>"
+    - terminal: Debug
+      command: "UVZCS <zoom> X M <val>" # UV zoom horizontal (x) magnification per zoom
+      response: "UVZCR <zoom> X M <val>"
 
   uv_magnify_y_command:
-    - terminal: FPGA
-      command: "UVRYS<val>" # UV zoom vertical (y) magnification
-      response: "UVRYR<val>"
+    - terminal: Debug
+      command: "UVZCS <zoom> Y M <val>" # UV zoom vertical (y) magnification per zoom
+      response: "UVZCR <zoom> Y M <val>"
 
-  # UV calibration - offset (center alignment)
+  # UV calibration - offset per zoom
   uv_offset_x_command:
-    - terminal: FPGA
-      command: "UVOXS<val>" # UV zoom horizontal (x) offset
-      response: "UVOXR<val>"
+    - terminal: Debug
+      command: "UVZCS <zoom> X O <val>" # UV zoom horizontal (x) offset per zoom
+      response: "UVZCR <zoom> X O <val>"
 
   uv_offset_y_command:
-    - terminal: FPGA
-      command: "UVOYS<val>" # UV zoom vertical (y) offset
-      response: "UVOYR<val>"
+    - terminal: Debug
+      command: "UVZCS <zoom> Y O <val>" # UV zoom vertical (y) offset per zoom
+      response: "UVZCR <zoom> Y O <val>"
 
 
 
@@ -278,29 +278,29 @@ get_values:
       command: "MIOQ1"
       response: "MIOR<val>"
 
-  # get uv offset x value
+  # get uv offset x value (per zoom)
   get_uv_offset_x_value:
-    - terminal: FPGA
-      command: "UVOXQ"
-      response: "UVOXR<val>"
+    - terminal: Debug
+      command: "UVZCQ <zoom> X O"
+      response: "UVZCR <zoom> X O <val>"
 
-  # get uv offset y value
+  # get uv offset y value (per zoom)
   get_uv_offset_y_value:
-    - terminal: FPGA
-      command: "UVOYQ"
-      response: "UVOYR<val>"
+    - terminal: Debug
+      command: "UVZCQ <zoom> Y O"
+      response: "UVZCR <zoom> Y O <val>"
 
-  # get uv magnify x value
+  # get uv magnify x value (per zoom)
   get_uv_magnify_x_value:
-    - terminal: FPGA
-      command: "UVRXQ"
-      response: "UVRXR<val>"
+    - terminal: Debug
+      command: "UVZCQ <zoom> X M"
+      response: "UVZCR <zoom> X M <val>"
 
-  # get uv magnify y value
+  # get uv magnify y value (per zoom)
   get_uv_magnify_y_value:
-    - terminal: FPGA
-      command: "UVRYQ"
-      response: "UVRYR<val>"
+    - terminal: Debug
+      command: "UVZCQ <zoom> Y M"
+      response: "UVZCR <zoom> Y M <val>"
 
 
   get_uv_offset_wide_x_value:

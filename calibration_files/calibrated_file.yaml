@@ -33,8 +33,15 @@ calibrations:
   distance_to_target: 1
 - type: registration
   zoom: 1
-  offset_x: 183
-  offset_y: 190
-  stretch_x: 9011
-  stretch_y: 10155
+  offset_x: 177
+  offset_y: 171
+  stretch_x: 10005
+  stretch_y: 11765
+  distance_to_target: 1
+- type: registration_wide
+  zoom: 1
+  offset_x: 381
+  offset_y: 148
+  stretch_x: 160
+  stretch_y: 135
   distance_to_target: 1

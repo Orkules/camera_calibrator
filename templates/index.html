@@ -713,13 +713,15 @@
         
         // Long-press functionality
         let longPressInterval = null;
+        let longPressTimeout = null;  // Timeout before fast mode starts
         let longPressType = null;
         let longPressDirection = null;
         let longPressCurrentValue = null;
         let longPressOriginalValue = null;
         let longPressMin = null;
         let longPressMax = null;
-        let longPressSpeed = 50;
+        let longPressSpeed = 30;   // 30ms = faster updates
+        let longPressDelay = 400;  // 400ms delay before fast mode
         
         function showStatus(message, type = 'info') {
             const status = document.getElementById('status');
@@ -977,13 +979,23 @@
                 longPressOriginalValue = longPressCurrentValue;
             }
             
-            longPressInterval = setInterval(() => {
-                if (type === 'reg') {
-                    updateRegistrationLongPress();
-                } else {
-                    updateValueLongPress();
-                }
-            }, longPressSpeed);
+            // Do single step immediately
+            if (type === 'reg') {
+                updateRegistrationLongPress();
+            } else {
+                updateValueLongPress();
+            }
+            
+            // Start fast mode only after 2 seconds delay
+            longPressTimeout = setTimeout(() => {
+                longPressInterval = setInterval(() => {
+                    if (type === 'reg') {
+                        updateRegistrationLongPress();
+                    } else {
+                        updateValueLongPress();
+                    }
+                }, longPressSpeed);
+            }, longPressDelay);
         }
         
         function updateValueLongPress() {
@@ -1054,6 +1066,13 @@
                 event.preventDefault();
             }
             
+            // Clear timeout (if fast mode hasn't started yet)
+            if (longPressTimeout) {
+                clearTimeout(longPressTimeout);
+                longPressTimeout = null;
+            }
+            
+            // Clear interval (if fast mode is running)
             if (longPressInterval) {
                 clearInterval(longPressInterval);
                 longPressInterval = null;
