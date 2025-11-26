@@ -4,7 +4,7 @@ stream:
   rtsp_url: "rtsp://192.168.0.100:9079/vis"
 
 settings:
-  update_interval_ms: 300000  # Interval for auto-updating zoom, gain, focus values from terminal
+  update_interval_ms: 10000  # Interval for auto-updating zoom, gain, focus values from terminal
 
 terminals:
   - name: "Linux"
@@ -170,6 +170,53 @@ commands:
       command: "UVOYS<val>" # UV zoom vertical (y) offset
       response: "UVOYR<val>"
 
+
+
+
+
+
+
+
+
+  uv_offset_wide_x_command:
+    - terminal: Debug
+      command: "UVMCS5XO <val>" 
+      response: "UVMCR 5XO <val>"
+
+  uv_offset_wide_y_command:
+    - terminal: Debug
+      command: "UVMCS5YO <val>" 
+      response: "UVMCR 5YO <val>"
+
+  uv_magnify_wide_x_command:
+    - terminal: Debug
+      command: "UVMCS5XM <val>" 
+      response: "UVMCR 5XM <val>"
+
+  uv_magnify_wide_y_command:
+    - terminal: Debug
+      command: "UVMCS5YM <val>" 
+      response: "UVMCR 5YM <val>"
+
+  uv_offset_narrow_x_command:
+    - terminal: Debug
+      command: "UVMCS10XO <val>" 
+      response: "UVMCR 10XO <val>"
+
+  uv_offset_narrow_y_command:
+    - terminal: Debug
+      command: "UVMCS10YO <val>" 
+      response: "UVMCR 10YO <val>"
+
+  uv_magnify_narrow_x_command:
+    - terminal: Debug
+      command: "UVMCS10XM <val>" 
+      response: "UVMCR 10XM <val>"
+
+  uv_magnify_narrow_y_command:
+    - terminal: Debug
+      command: "UVMCS10YM <val>" 
+      response: "UVMCR 10YM <val>"
   set_camera_to_uv_command:
     - terminal: Debug
       command: "DMODES2" # set the camera to uv mode
@@ -184,6 +231,9 @@ commands:
     - terminal: Debug
       command: "DMODES3" # set the camera to uv + vis mode
       response: "DMODER<val>"
+
+
+
 get_values:
 
   get_camera_mode_value:
@@ -253,6 +303,38 @@ get_values:
       response: "UVRYR<val>"
 
 
+  get_uv_offset_wide_x_value:
+    - terminal: Debug
+      command: "UVMCQ5XO"
+      response: "UVMCR 5XO <val>"
+  get_uv_offset_wide_y_value:
+    - terminal: Debug
+      command: "UVMCQ5YO"
+      response: "UVMCR 5YO <val>"
+  get_uv_magnify_wide_x_value:
+    - terminal: Debug
+      command: "UVMCQ5XM"
+      response: "UVMCR 5XM <val>"
+  get_uv_magnify_wide_y_value:
+    - terminal: Debug
+      command: "UVMCQ5YM"
+      response: "UVMCR 5YM <val>"
+  get_uv_offset_narrow_x_value:
+    - terminal: Debug
+      command: "UVMCQ10XO"
+      response: "UVMCR 10XO <val>"
+  get_uv_offset_narrow_y_value:
+    - terminal: Debug
+      command: "UVMCQ10YO"
+      response: "UVMCR 10YO <val>"
+  get_uv_magnify_narrow_x_value:
+    - terminal: Debug
+      command: "UVMCQ10XM"
+      response: "UVMCR 10XM <val>"
+  get_uv_magnify_narrow_y_value:
+    - terminal: Debug
+      command: "UVMCQ10YM"
+      response: "UVMCR 10YM <val>"
 # Auto responses - responses that come automatically without sending a command
 # These are handled by the background listener
 auto_responses:

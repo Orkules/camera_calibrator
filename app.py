@@ -36,10 +36,27 @@ gain_min_value = 0  # Minimum gain value
 gain_medium_value = 0  # Medium gain value
 gain_max_value = 0  # Maximum gain value
 registration_mode = "shift"  # "shift" or "stretch_compress"
+master_registration_mode = "per_zoom"  # "per_zoom", "wide", or "narrow"
 reg_offset_x = 0
 reg_offset_y = 0
 reg_stretch_x = 0
 reg_stretch_y = 0
+
+# Master registration values for Wide and Narrow modes
+master_registration = {
+    "wide": {
+        "offset_x": 0,
+        "offset_y": 0,
+        "stretch_x": 0,
+        "stretch_y": 0
+    },
+    "narrow": {
+        "offset_x": 0,
+        "offset_y": 0,
+        "stretch_x": 0,
+        "stretch_y": 0
+    }
+}
 gain_mode = "min"  # "min" or "max" (kept for backward compatibility)
 cps_value = 0
 time_interval_value = ""
@@ -146,6 +163,7 @@ def register_terminal_callbacks():
     global terminal_manager, config, zoom_value, gain_value, focus_value, motor_max
     global reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y, uv_vis_focus_info
     global gain_min_value, gain_medium_value, gain_max_value, camera_mode, uv_motor_position
+    global master_registration
     
     if terminal_manager is None or config is None:
         return
@@ -175,6 +193,24 @@ def register_terminal_callbacks():
         'set_camera_to_combined_command': ('camera_mode', None),
         'get_camera_mode_value': ('camera_mode', None),
         'get_uv_motor_position': ('uv_motor_position', None),
+        # Wide registration commands
+        'uv_offset_wide_x_command': ('master_reg_wide_offset_x', None),
+        'uv_offset_wide_y_command': ('master_reg_wide_offset_y', None),
+        'uv_magnify_wide_x_command': ('master_reg_wide_stretch_x', None),
+        'uv_magnify_wide_y_command': ('master_reg_wide_stretch_y', None),
+        'get_uv_offset_wide_x_value': ('master_reg_wide_offset_x', None),
+        'get_uv_offset_wide_y_value': ('master_reg_wide_offset_y', None),
+        'get_uv_magnify_wide_x_value': ('master_reg_wide_stretch_x', None),
+        'get_uv_magnify_wide_y_value': ('master_reg_wide_stretch_y', None),
+        # Narrow registration commands
+        'uv_offset_narrow_x_command': ('master_reg_narrow_offset_x', None),
+        'uv_offset_narrow_y_command': ('master_reg_narrow_offset_y', None),
+        'uv_magnify_narrow_x_command': ('master_reg_narrow_stretch_x', None),
+        'uv_magnify_narrow_y_command': ('master_reg_narrow_stretch_y', None),
+        'get_uv_offset_narrow_x_value': ('master_reg_narrow_offset_x', None),
+        'get_uv_offset_narrow_y_value': ('master_reg_narrow_offset_y', None),
+        'get_uv_magnify_narrow_x_value': ('master_reg_narrow_stretch_x', None),
+        'get_uv_magnify_narrow_y_value': ('master_reg_narrow_stretch_y', None),
     }
     
     # Collect all response patterns from config
@@ -283,6 +319,32 @@ def register_terminal_callbacks():
                                 globals()['camera_mode'] = parsed
                                 logging.info(f"Auto-updated camera mode: {old_mode} -> {parsed} from {response}")
                                 add_console_message(f"Camera mode updated: {parsed}")
+                            # Wide registration values
+                            elif global_var_name == 'master_reg_wide_offset_x':
+                                master_registration["wide"]["offset_x"] = parsed
+                                logging.info(f"Auto-updated wide offset X: {parsed} from {response}")
+                            elif global_var_name == 'master_reg_wide_offset_y':
+                                master_registration["wide"]["offset_y"] = parsed
+                                logging.info(f"Auto-updated wide offset Y: {parsed} from {response}")
+                            elif global_var_name == 'master_reg_wide_stretch_x':
+                                master_registration["wide"]["stretch_x"] = parsed
+                                logging.info(f"Auto-updated wide magnify X: {parsed} from {response}")
+                            elif global_var_name == 'master_reg_wide_stretch_y':
+                                master_registration["wide"]["stretch_y"] = parsed
+                                logging.info(f"Auto-updated wide magnify Y: {parsed} from {response}")
+                            # Narrow registration values
+                            elif global_var_name == 'master_reg_narrow_offset_x':
+                                master_registration["narrow"]["offset_x"] = parsed
+                                logging.info(f"Auto-updated narrow offset X: {parsed} from {response}")
+                            elif global_var_name == 'master_reg_narrow_offset_y':
+                                master_registration["narrow"]["offset_y"] = parsed
+                                logging.info(f"Auto-updated narrow offset Y: {parsed} from {response}")
+                            elif global_var_name == 'master_reg_narrow_stretch_x':
+                                master_registration["narrow"]["stretch_x"] = parsed
+                                logging.info(f"Auto-updated narrow magnify X: {parsed} from {response}")
+                            elif global_var_name == 'master_reg_narrow_stretch_y':
+                                master_registration["narrow"]["stretch_y"] = parsed
+                                logging.info(f"Auto-updated narrow magnify Y: {parsed} from {response}")
             return callback
         
         callback_func = make_callback(response_pattern, global_vars)
@@ -632,6 +694,7 @@ def terminal_initialization():
     Updates global variables and UI.
     """
     global zoom_value, gain_value, focus_value, motor_max, reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y, camera_mode
+    global master_registration
     
     logging.info("Starting terminal initialization...")
     
@@ -694,6 +757,28 @@ def terminal_initialization():
     get_value_from_config('get_uv_magnify_y_value')
     time.sleep(0.1)
     logging.info(f"Initialized UV magnify Y: {reg_stretch_y}")
+    
+    # Get Wide registration values
+    get_value_from_config('get_uv_offset_wide_x_value')
+    time.sleep(0.1)
+    get_value_from_config('get_uv_offset_wide_y_value')
+    time.sleep(0.1)
+    get_value_from_config('get_uv_magnify_wide_x_value')
+    time.sleep(0.1)
+    get_value_from_config('get_uv_magnify_wide_y_value')
+    time.sleep(0.1)
+    logging.info(f"Initialized Wide registration: offset({master_registration['wide']['offset_x']}, {master_registration['wide']['offset_y']}), magnify({master_registration['wide']['stretch_x']}, {master_registration['wide']['stretch_y']})")
+    
+    # Get Narrow registration values
+    get_value_from_config('get_uv_offset_narrow_x_value')
+    time.sleep(0.1)
+    get_value_from_config('get_uv_offset_narrow_y_value')
+    time.sleep(0.1)
+    get_value_from_config('get_uv_magnify_narrow_x_value')
+    time.sleep(0.1)
+    get_value_from_config('get_uv_magnify_narrow_y_value')
+    time.sleep(0.1)
+    logging.info(f"Initialized Narrow registration: offset({master_registration['narrow']['offset_x']}, {master_registration['narrow']['offset_y']}), magnify({master_registration['narrow']['stretch_x']}, {master_registration['narrow']['stretch_y']})")
     
     # Get camera mode value
     get_value_from_config('get_camera_mode_value')
@@ -1298,6 +1383,7 @@ def reg_right():
 def set_registration():
     """Set registration to absolute values"""
     global reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y, registration_mode
+    global master_registration_mode, master_registration
     
     data = request.get_json()
     direction = data.get('direction')  # 'up', 'down', 'left', 'right'
@@ -1306,25 +1392,88 @@ def set_registration():
     if direction is None or target_value is None:
         return jsonify({'success': False, 'error': 'Direction or value not provided'})
     
-    if registration_mode == "shift":
-        if direction in ['up', 'down']:
-            # Send command to terminal with absolute target value
-            success, response, parsed_value = execute_command_from_config('uv_offset_y_command', target_value)
-        else:  # left, right
-            success, response, parsed_value = execute_command_from_config('uv_offset_x_command', target_value)
-    else:  # stretch_compress
-        if direction in ['up', 'down']:
-            success, response, parsed_value = execute_command_from_config('uv_magnify_y_command', target_value)
-        else:  # left, right
-            success, response, parsed_value = execute_command_from_config('uv_magnify_x_command', target_value)
-    
-    if success:
-        return jsonify({
-            'success': True,
+    # Determine which command to use based on master_registration_mode
+    if master_registration_mode == "per_zoom":
+        # Original FPGA commands
+        if registration_mode == "shift":
+            if direction in ['up', 'down']:
+                success, response, parsed_value = execute_command_from_config('uv_offset_y_command', target_value)
+            else:  # left, right
+                success, response, parsed_value = execute_command_from_config('uv_offset_x_command', target_value)
+        else:  # stretch_compress
+            if direction in ['up', 'down']:
+                success, response, parsed_value = execute_command_from_config('uv_magnify_y_command', target_value)
+            else:  # left, right
+                success, response, parsed_value = execute_command_from_config('uv_magnify_x_command', target_value)
+        
+        # Return per_zoom values
+        response_values = {
             'offset_x': reg_offset_x,
             'offset_y': reg_offset_y,
             'stretch_x': reg_stretch_x,
             'stretch_y': reg_stretch_y
+        }
+    elif master_registration_mode == "wide":
+        # Wide mode - Debug terminal commands
+        if registration_mode == "shift":
+            if direction in ['up', 'down']:
+                success, response, parsed_value = execute_command_from_config('uv_offset_wide_y_command', target_value)
+                if success:
+                    master_registration["wide"]["offset_y"] = target_value
+            else:  # left, right
+                success, response, parsed_value = execute_command_from_config('uv_offset_wide_x_command', target_value)
+                if success:
+                    master_registration["wide"]["offset_x"] = target_value
+        else:  # stretch_compress
+            if direction in ['up', 'down']:
+                success, response, parsed_value = execute_command_from_config('uv_magnify_wide_y_command', target_value)
+                if success:
+                    master_registration["wide"]["stretch_y"] = target_value
+            else:  # left, right
+                success, response, parsed_value = execute_command_from_config('uv_magnify_wide_x_command', target_value)
+                if success:
+                    master_registration["wide"]["stretch_x"] = target_value
+        
+        # Return wide values
+        response_values = {
+            'offset_x': master_registration["wide"]["offset_x"],
+            'offset_y': master_registration["wide"]["offset_y"],
+            'stretch_x': master_registration["wide"]["stretch_x"],
+            'stretch_y': master_registration["wide"]["stretch_y"]
+        }
+    else:  # narrow
+        # Narrow mode - Debug terminal commands
+        if registration_mode == "shift":
+            if direction in ['up', 'down']:
+                success, response, parsed_value = execute_command_from_config('uv_offset_narrow_y_command', target_value)
+                if success:
+                    master_registration["narrow"]["offset_y"] = target_value
+            else:  # left, right
+                success, response, parsed_value = execute_command_from_config('uv_offset_narrow_x_command', target_value)
+                if success:
+                    master_registration["narrow"]["offset_x"] = target_value
+        else:  # stretch_compress
+            if direction in ['up', 'down']:
+                success, response, parsed_value = execute_command_from_config('uv_magnify_narrow_y_command', target_value)
+                if success:
+                    master_registration["narrow"]["stretch_y"] = target_value
+            else:  # left, right
+                success, response, parsed_value = execute_command_from_config('uv_magnify_narrow_x_command', target_value)
+                if success:
+                    master_registration["narrow"]["stretch_x"] = target_value
+        
+        # Return narrow values
+        response_values = {
+            'offset_x': master_registration["narrow"]["offset_x"],
+            'offset_y': master_registration["narrow"]["offset_y"],
+            'stretch_x': master_registration["narrow"]["stretch_x"],
+            'stretch_y': master_registration["narrow"]["stretch_y"]
+        }
+    
+    if success:
+        return jsonify({
+            'success': True,
+            **response_values
         })
     else:
         return jsonify({'success': False, 'error': 'Failed to send registration command'})
@@ -1376,15 +1525,82 @@ def smart_registration():
 
 @app.route('/get_registration_mode', methods=['GET'])
 def get_registration_mode():
-    """Get current registration mode and values"""
+    """Get current registration mode and values based on master_registration_mode"""
     global registration_mode, reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y
+    global master_registration_mode, master_registration
+    
+    # Return values based on current master_registration_mode
+    if master_registration_mode == "per_zoom":
+        response_values = {
+            'offset_x': reg_offset_x,
+            'offset_y': reg_offset_y,
+            'stretch_x': reg_stretch_x,
+            'stretch_y': reg_stretch_y
+        }
+    elif master_registration_mode == "wide":
+        response_values = {
+            'offset_x': master_registration["wide"]["offset_x"],
+            'offset_y': master_registration["wide"]["offset_y"],
+            'stretch_x': master_registration["wide"]["stretch_x"],
+            'stretch_y': master_registration["wide"]["stretch_y"]
+        }
+    else:  # narrow
+        response_values = {
+            'offset_x': master_registration["narrow"]["offset_x"],
+            'offset_y': master_registration["narrow"]["offset_y"],
+            'stretch_x': master_registration["narrow"]["stretch_x"],
+            'stretch_y': master_registration["narrow"]["stretch_y"]
+        }
+    
     return jsonify({
         'mode': registration_mode,
-        'offset_x': reg_offset_x,
-        'offset_y': reg_offset_y,
-        'stretch_x': reg_stretch_x,
-        'stretch_y': reg_stretch_y
+        'master_mode': master_registration_mode,
+        **response_values
     })
+
+
+@app.route('/set_master_registration_mode', methods=['POST'])
+def set_master_registration_mode():
+    """Set master registration mode (per_zoom, wide, or narrow)"""
+    global master_registration_mode, master_registration
+    global reg_offset_x, reg_offset_y, reg_stretch_x, reg_stretch_y
+    
+    data = request.get_json()
+    mode = data.get('mode', 'per_zoom')
+    
+    if mode in ['per_zoom', 'wide', 'narrow']:
+        master_registration_mode = mode
+        
+        # Return the values for the selected mode
+        if mode == "per_zoom":
+            response_values = {
+                'offset_x': reg_offset_x,
+                'offset_y': reg_offset_y,
+                'stretch_x': reg_stretch_x,
+                'stretch_y': reg_stretch_y
+            }
+        elif mode == "wide":
+            response_values = {
+                'offset_x': master_registration["wide"]["offset_x"],
+                'offset_y': master_registration["wide"]["offset_y"],
+                'stretch_x': master_registration["wide"]["stretch_x"],
+                'stretch_y': master_registration["wide"]["stretch_y"]
+            }
+        else:  # narrow
+            response_values = {
+                'offset_x': master_registration["narrow"]["offset_x"],
+                'offset_y': master_registration["narrow"]["offset_y"],
+                'stretch_x': master_registration["narrow"]["stretch_x"],
+                'stretch_y': master_registration["narrow"]["stretch_y"]
+            }
+        
+        return jsonify({
+            'success': True,
+            'master_mode': master_registration_mode,
+            **response_values
+        })
+    else:
+        return jsonify({'success': False, 'error': 'Invalid mode'})
 
 
 # ============================================

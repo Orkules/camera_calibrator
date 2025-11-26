@@ -1,3 +1,40 @@
+camera_serial: TYFGJFGDHF
+technician_name: NOAM AND OR
 motor_max: 36548
 distance_to_target: 1
-calibrations: []
+calibrations:
+- type: focus
+  zoom: 10
+  focus_value: 0
+  vis_position: 19210
+  uv_position: 31024
+  zoom_status: narrow
+  distance: 0
+  distance_to_target: 2
+- type: focus
+  zoom: 10
+  focus_value: 0
+  vis_position: 19210
+  uv_position: 31024
+  zoom_status: narrow
+  distance: 0
+  distance_to_target: 1
+- type: gain
+  zoom: 10
+  gain_min_value: 585
+  gain_medium_value: 2015
+  gain_max_value: 3440
+- type: registration
+  zoom: 0
+  offset_x: 183
+  offset_y: 190
+  stretch_x: 9011
+  stretch_y: 10155
+  distance_to_target: 1
+- type: registration
+  zoom: 1
+  offset_x: 183
+  offset_y: 190
+  stretch_x: 9011
+  stretch_y: 10155
+  distance_to_target: 1

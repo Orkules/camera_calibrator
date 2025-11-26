@@ -125,6 +125,22 @@
             background: #5a6268;
         }
         
+        .btn-tab {
+            background: #6c757d;
+            border: 2px solid transparent;
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+        }
+        
+        .btn-tab:hover {
+            background: #5a6268;
+        }
+        
+        .btn-tab.active {
+            background: #007bff;
+            border-color: #007bff;
+        }
+        
         .btn:disabled {
             background: #6c757d;
             cursor: not-allowed;
@@ -606,6 +622,13 @@
             <!-- Registration -->
             <div class="toolbar-box">
                 <h3>Registration</h3>
+                <!-- Master Registration Mode Tabs -->
+                <div style="display: flex; gap: 3px; margin-bottom: 8px;">
+                    <button class="btn btn-tab" id="reg-master-per-zoom" onclick="setMasterRegistrationMode('per_zoom')" style="flex: 1; padding: 4px 6px; font-size: 11px;">Per Zoom</button>
+                    <button class="btn btn-tab" id="reg-master-wide" onclick="setMasterRegistrationMode('wide')" style="flex: 1; padding: 4px 6px; font-size: 11px;">Wide</button>
+                    <button class="btn btn-tab" id="reg-master-narrow" onclick="setMasterRegistrationMode('narrow')" style="flex: 1; padding: 4px 6px; font-size: 11px;">Narrow</button>
+                </div>
+                <!-- Shift / Stretch-Compress Mode -->
                 <div style="display: flex; gap: 5px; margin-bottom: 5px;">
                     <button class="btn btn-mode" id="reg-mode-shift" onclick="setRegistrationMode('shift')" style="flex: 1;">Shift</button>
                     <button class="btn btn-mode" id="reg-mode-stretch" onclick="setRegistrationMode('stretch_compress')" style="flex: 1;">Stretch/Compress</button>
@@ -1198,6 +1221,55 @@
             }
         }
         
+        async function setMasterRegistrationMode(mode) {
+            try {
+                const response = await fetch('/set_master_registration_mode', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ mode: mode })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    // Update tab buttons
+                    updateMasterRegistrationButtons(mode);
+                    
+                    // Update displayed values
+                    document.getElementById('reg-shift-x').textContent = `X:${result.offset_x || 0}`;
+                    document.getElementById('reg-shift-y').textContent = `Y:${result.offset_y || 0}`;
+                    document.getElementById('reg-stretch-x').textContent = `X:${result.stretch_x || 0}`;
+                    document.getElementById('reg-stretch-y').textContent = `Y:${result.stretch_y || 0}`;
+                    
+                    logToConsole(`Master registration mode: ${mode}`);
+                }
+            } catch (error) {
+                logToConsole(`Error setting master registration mode: ${error.message}`);
+            }
+        }
+        
+        function updateMasterRegistrationButtons(mode) {
+            // Reset all tab buttons
+            document.getElementById('reg-master-per-zoom').classList.remove('active');
+            document.getElementById('reg-master-per-zoom').style.background = '#6c757d';
+            document.getElementById('reg-master-wide').classList.remove('active');
+            document.getElementById('reg-master-wide').style.background = '#6c757d';
+            document.getElementById('reg-master-narrow').classList.remove('active');
+            document.getElementById('reg-master-narrow').style.background = '#6c757d';
+            
+            // Set active button
+            if (mode === 'per_zoom') {
+                document.getElementById('reg-master-per-zoom').classList.add('active');
+                document.getElementById('reg-master-per-zoom').style.background = '#007bff';
+            } else if (mode === 'wide') {
+                document.getElementById('reg-master-wide').classList.add('active');
+                document.getElementById('reg-master-wide').style.background = '#007bff';
+            } else if (mode === 'narrow') {
+                document.getElementById('reg-master-narrow').classList.add('active');
+                document.getElementById('reg-master-narrow').style.background = '#007bff';
+            }
+        }
+        
         async function smartRegistration() {
             const response = await fetch('/smart_registration', { method: 'POST' });
             const result = await response.json();
@@ -1537,7 +1609,7 @@
                 document.getElementById('reg-stretch-x').textContent = `X:${regMode.stretch_x || 0}`;
                 document.getElementById('reg-stretch-y').textContent = `Y:${regMode.stretch_y || 0}`;
                 
-                // Update registration mode buttons
+                // Update registration mode buttons (Shift / Stretch-Compress)
                 if (regMode.mode === 'shift') {
                     document.getElementById('reg-mode-shift').style.background = '#007bff';
                     document.getElementById('reg-mode-stretch').style.background = '#6c757d';
@@ -1545,6 +1617,9 @@
                     document.getElementById('reg-mode-shift').style.background = '#6c757d';
                     document.getElementById('reg-mode-stretch').style.background = '#007bff';
                 }
+                
+                // Update master registration mode buttons (Per Zoom / Wide / Narrow)
+                updateMasterRegistrationButtons(regMode.master_mode || 'per_zoom');
                 
                 // Update camera mode buttons
                 updateCameraModeButtons(cameraMode.camera_mode || 0);
